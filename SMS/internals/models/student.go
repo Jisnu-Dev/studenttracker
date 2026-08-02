@@ -22,8 +22,16 @@ type Student struct {
 	Name         string         `json:"name"`
 	Email        string         `json:"email"`
 	Department   departmentType `json:"department"`
-	Semester     string         `json:"semester"`
+	Semester     int            `json:"semester"`
 	Age          int            `json:"age"`
 	CreatedAtUTC time.Time      `json:"createdAtUtc"`
 	UpdatedAtUTC time.Time      `json:"updatedAtUtc"`
+}
+
+type PatchStudent struct {
+	Name       *string         `json:"name"`
+	Email      *string         `json:"email"`
+	Department *departmentType `json:"department"`
+	Semester   *int            `json:"semester"`
+	Age        *int            `json:"age"`
 }

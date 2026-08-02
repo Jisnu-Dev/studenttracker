@@ -32,7 +32,13 @@ func mount(router *gin.Engine, handler *handlers.Handler) {
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "API is good."})
 	})
-	// Additional routes can be mounted here using the handler
+	// routes
+	router.POST("/students", handler.CreateStudentHandler)
+	router.GET("/students", handler.GetAllStudentsHandler)
+	router.GET("/students/:id", handler.GetStudentByIDHandler)
+	router.DELETE("/students/:id", handler.DeleteStudentHandler)
+	router.PUT("/students/:id", handler.UpdateStudentHandler)
+	router.PATCH("/students/:id", handler.PatchStudentHandler)
 }
 
 func run() error {
