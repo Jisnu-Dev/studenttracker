@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 
+	tokenpb "github.com/Jisnu-Dev/TMS/gen/token"
 	"github.com/Jisnu-Dev/TMS/internals/handlers"
 	"github.com/Jisnu-Dev/TMS/internals/services"
 	"github.com/joho/godotenv"
@@ -13,19 +14,19 @@ import (
 )
 
 type AppConfig struct {
-	GRPCPort string
+	GRPCPort  string
+	JWTSecret string
 }
 
 func run() error {
 	config := loadConfig()
 
-	service := services.NewService()
+	service := services.NewService(config.JWTSecret)
 	handler := handlers.NewHandler(service)
 
-	// until we register the handler below
-	_ = handler
-
 	grpcServer := grpc.NewServer()
+
+	tokenpb.RegisterTokenServiceServer(grpcServer, handler)
 
 	// TODO: Register your generated service here after running protoc:
 	// tokenpb.RegisterTokenServiceServer(grpcServer, handler)
@@ -49,7 +50,8 @@ func loadConfig() *AppConfig {
 	}
 
 	return &AppConfig{
-		GRPCPort: getEnvOrDefault("GRPC_PORT", "50051"),
+		GRPCPort:  getEnvOrDefault("GRPC_PORT", "50051"),
+		JWTSecret: getEnvOrDefault("JWT_SECRET", "d8f34a91c7e26b5f8a1d9c4e72bf06a5e1c398fd4b7a2e6c90f15d8ab34c7e29"),
 	}
 }
 

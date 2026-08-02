@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/Jisnu-Dev/studenttracker/internals/clients"
 	"github.com/Jisnu-Dev/studenttracker/internals/handlers"
 	"github.com/Jisnu-Dev/studenttracker/internals/services"
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,7 @@ import (
 
 type AppConfig struct {
 	ServerPort string
+	TMSUrl     string
 	DB         DatabaseConfig
 }
 
@@ -34,6 +36,7 @@ func mount(router *gin.Engine, handler *handlers.Handler) {
 	})
 	// admin routes
 	router.POST("/register", handler.RegisterAdminHandler)
+	router.POST("/login", handler.LoginAdminHandler)
 
 	// student routes
 	router.POST("/students", handler.CreateStudentHandler)
@@ -53,8 +56,15 @@ func run() error {
 	}
 	defer db.Close()
 
+	//connecting to TMS gRPC service
+	tokenClient, err := clients.NewTokenClient(config.TMSUrl)
+	if err != nil {
+		return fmt.Errorf("failed to create token client: %w", err)
+	}
+	//close the tokenclient
+
 	service := services.NewService(db)
-	handler := handlers.NewHandler(service)
+	handler := handlers.NewHandler(service, tokenClient)
 
 	router := gin.New()
 
@@ -78,6 +88,7 @@ func loadConfig() *AppConfig {
 
 	return &AppConfig{
 		ServerPort: getEnvOrDefault("SERVER_PORT", "8080"),
+		TMSUrl:     getEnvOrDefault("TMS_URL", "localhost:50051"),
 		DB: DatabaseConfig{
 			Host:     getEnvOrDefault("DB_HOST", "localhost"),
 			Port:     getEnvOrDefault("DB_PORT", "5432"),
