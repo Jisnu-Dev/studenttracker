@@ -9,6 +9,7 @@ import (
 
 	"github.com/Jisnu-Dev/studenttracker/internals/clients"
 	"github.com/Jisnu-Dev/studenttracker/internals/handlers"
+	"github.com/Jisnu-Dev/studenttracker/internals/middlewares"
 	"github.com/Jisnu-Dev/studenttracker/internals/services"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -30,7 +31,7 @@ type DatabaseConfig struct {
 	SSLMode  string
 }
 
-func mount(router *gin.Engine, handler *handlers.Handler) {
+func mount(router *gin.Engine, handler *handlers.Handler, tokenClient *clients.TokenClient) {
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "API is good."})
 	})
@@ -39,12 +40,15 @@ func mount(router *gin.Engine, handler *handlers.Handler) {
 	router.POST("/login", handler.LoginAdminHandler)
 
 	// student routes
-	router.POST("/students", handler.CreateStudentHandler)
-	router.GET("/students", handler.GetAllStudentsHandler)
-	router.GET("/students/:id", handler.GetStudentByIDHandler)
-	router.DELETE("/students/:id", handler.DeleteStudentHandler)
-	router.PUT("/students/:id", handler.UpdateStudentHandler)
-	router.PATCH("/students/:id", handler.PatchStudentHandler)
+	studentRoutes := router.Group("/students")
+	studentRoutes.Use(middlewares.AuthMiddleware(tokenClient))
+
+	studentRoutes.POST("/", handler.CreateStudentHandler)
+	studentRoutes.GET("/", handler.GetAllStudentsHandler)
+	studentRoutes.GET("/:id", handler.GetStudentByIDHandler)
+	studentRoutes.PUT("/:id", handler.UpdateStudentHandler)
+	studentRoutes.PATCH("/:id", handler.PatchStudentHandler)
+	studentRoutes.DELETE("/:id", handler.DeleteStudentHandler)
 }
 
 func run() error {
@@ -71,7 +75,7 @@ func run() error {
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
 
-	mount(router, handler)
+	mount(router, handler, tokenClient)
 
 	log.Printf("Server starting on port %s", config.ServerPort)
 	if err := router.Run(":" + config.ServerPort); err != nil {
