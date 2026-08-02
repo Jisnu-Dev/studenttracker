@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package token;
+option go_package = "github.com/Jisnu-Dev/TMS/gen/token";
+
+service TokenService {
+    rpc GenerateToken(GenerateTokenRequest) returns (GenerateTokenResponse);
+    rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+}
+
+message GenerateTokenRequest {
+    int64 adminID = 1;
+    string adminEmail = 2;
+}
+
+message GenerateTokenResponse {
+    string token = 1;
+}
+
+message ValidateTokenRequest {
+    string token = 1;
+}
+
+message ValidateTokenResponse {
+    bool isValid = 1;
+    int64 adminId = 2;
+    string adminEmail = 3;
+}

@@ -32,7 +32,10 @@ func mount(router *gin.Engine, handler *handlers.Handler) {
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "API is good."})
 	})
-	// routes
+	// admin routes
+	router.POST("/register", handler.RegisterAdminHandler)
+
+	// student routes
 	router.POST("/students", handler.CreateStudentHandler)
 	router.GET("/students", handler.GetAllStudentsHandler)
 	router.GET("/students/:id", handler.GetStudentByIDHandler)

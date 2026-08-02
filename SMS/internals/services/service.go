@@ -120,3 +120,14 @@ func (s *Service) PatchStudent(id int64, student models.PatchStudent) error {
 	}
 	return nil
 }
+
+func (s *Service) RegisterAdmin(admin models.Admin) (int64, error) {
+	query := `INSERT INTO admin (name, email, passwordHash) VALUES ($1, $2, $3) RETURNING id`
+	var id int64
+
+	if err := s.db.QueryRow(query, admin.Name, admin.Email, admin.Password).Scan(&id); err != nil {
+		return 0, err
+	}
+
+	return id, nil
+}
