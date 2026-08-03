@@ -8,6 +8,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+type ServiceInterface interface {
+	GenerateToken(adminID int64, adminEmail string) (string, error)
+	ValidateToken(tokenString string) (bool, int64, string, error)
+}
+
 type Claims struct {
 	AdminID    int64  `json:"adminID"`
 	AdminEmail string `json:"adminEmail"`

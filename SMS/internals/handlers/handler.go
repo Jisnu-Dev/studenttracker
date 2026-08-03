@@ -6,11 +6,11 @@ import (
 )
 
 type Handler struct {
-	service     *services.Service
-	TokenClient *clients.TokenClient
+	service     services.ServiceInterface
+	TokenClient clients.TokenClientInterface
 }
 
-func NewHandler(service *services.Service, tokenClient *clients.TokenClient) *Handler {
+func NewHandler(service services.ServiceInterface, tokenClient clients.TokenClientInterface) *Handler {
 	return &Handler{
 		service:     service,
 		TokenClient: tokenClient,

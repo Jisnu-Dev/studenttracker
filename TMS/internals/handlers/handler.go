@@ -6,10 +6,10 @@ import (
 )
 
 type Handler struct {
-	service *services.Service
+	service services.ServiceInterface
 	tokenpb.UnimplementedTokenServiceServer
 }
 
-func NewHandler(service *services.Service) *Handler {
+func NewHandler(service services.ServiceInterface) *Handler {
 	return &Handler{service: service}
 }

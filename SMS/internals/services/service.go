@@ -11,6 +11,17 @@ import (
 	"github.com/lib/pq"
 )
 
+type ServiceInterface interface {
+	CreateStudent(student models.Student) (int, error)
+	GetAllStudents() ([]models.Student, error)
+	GetStudentByID(id int64) (models.Student, error)
+	DeleteStudent(id int64) error
+	UpdateStudent(id int64, student models.Student) error
+	PatchStudent(id int64, student models.PatchStudent) error
+	RegisterAdmin(admin models.Admin) (int64, error)
+	GetAdminByEmail(email string) (models.Admin, error)
+}
+
 type Service struct {
 	db *sql.DB
 }
