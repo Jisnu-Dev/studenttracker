@@ -5,6 +5,7 @@ import (
 
 	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
+	"github.com/Jisnu-Dev/studenttracker/internals/validation"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,6 +17,11 @@ func (h *Handler) UpdateStudentHandler(c *gin.Context) {
 
 	var student models.Student
 	if !utils.BindJSON(c, &student) {
+		return
+	}
+
+	if err := validation.ValidateStudent(&student); err != nil {
+		utils.RespondWithError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 

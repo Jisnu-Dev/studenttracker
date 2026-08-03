@@ -4,24 +4,24 @@ import (
 	"time"
 )
 
-type departmentType string
+type DepartmentType string
 
 const (
-	CSE   departmentType = "CSE"
-	IT    departmentType = "IT"
-	ECE   departmentType = "ECE"
-	EEE   departmentType = "EEE"
-	MECH  departmentType = "MECH"
-	CIVIL departmentType = "CIVIL"
-	AIDS  departmentType = "AIDS"
-	AIML  departmentType = "AIML"
+	CSE   DepartmentType = "CSE"
+	IT    DepartmentType = "IT"
+	ECE   DepartmentType = "ECE"
+	EEE   DepartmentType = "EEE"
+	MECH  DepartmentType = "MECH"
+	CIVIL DepartmentType = "CIVIL"
+	AIDS  DepartmentType = "AIDS"
+	AIML  DepartmentType = "AIML"
 )
 
 type Student struct {
 	ID           int64          `json:"id"`
 	Name         string         `json:"name"`
 	Email        string         `json:"email"`
-	Department   departmentType `json:"department"`
+	Department   DepartmentType `json:"department"`
 	Semester     int            `json:"semester"`
 	Age          int            `json:"age"`
 	CreatedAtUTC time.Time      `json:"createdAtUtc"`
@@ -31,7 +31,7 @@ type Student struct {
 type PatchStudent struct {
 	Name       *string         `json:"name"`
 	Email      *string         `json:"email"`
-	Department *departmentType `json:"department"`
+	Department *DepartmentType `json:"department"`
 	Semester   *int            `json:"semester"`
 	Age        *int            `json:"age"`
 }

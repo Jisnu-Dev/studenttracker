@@ -5,6 +5,7 @@ import (
 
 	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
+	"github.com/Jisnu-Dev/studenttracker/internals/validation"
 	"github.com/gin-gonic/gin"
 )
 
@@ -12,6 +13,11 @@ func (h *Handler) RegisterAdminHandler(c *gin.Context) {
 	var admin models.Admin
 
 	if !utils.BindJSON(c, &admin) {
+		return
+	}
+
+	if err := validation.ValidateAdminRegister(&admin); err != nil {
+		utils.RespondWithError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 

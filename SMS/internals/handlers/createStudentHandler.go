@@ -5,6 +5,7 @@ import (
 
 	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
+	"github.com/Jisnu-Dev/studenttracker/internals/validation"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,6 +17,10 @@ func (h *Handler) CreateStudentHandler(c *gin.Context) {
 	}
 
 	//validate
+	if err := validation.ValidateStudent(&student); err != nil {
+		utils.RespondWithError(c, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	//call service
 	id, err := h.service.CreateStudent(student)

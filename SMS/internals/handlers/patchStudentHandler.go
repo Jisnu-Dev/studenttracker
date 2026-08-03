@@ -5,6 +5,7 @@ import (
 
 	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
+	"github.com/Jisnu-Dev/studenttracker/internals/validation"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,6 +17,11 @@ func (h *Handler) PatchStudentHandler(c *gin.Context) {
 
 	var patchStudent models.PatchStudent
 	if !utils.BindJSON(c, &patchStudent) {
+		return
+	}
+
+	if err := validation.ValidatePatchStudent(&patchStudent); err != nil {
+		utils.RespondWithError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 

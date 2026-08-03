@@ -8,6 +8,7 @@ import (
 
 	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
+	"github.com/Jisnu-Dev/studenttracker/internals/validation"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,6 +16,11 @@ func (h *Handler) LoginAdminHandler(c *gin.Context) {
 	var req models.LoginRequest
 
 	if !utils.BindJSON(c, &req) {
+		return
+	}
+
+	if err := validation.ValidateAdminLogin(&req); err != nil {
+		utils.RespondWithError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
