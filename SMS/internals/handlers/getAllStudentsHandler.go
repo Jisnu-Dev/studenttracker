@@ -3,14 +3,15 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/gin-gonic/gin"
 )
 
 func (h *Handler) GetAllStudentsHandler(c *gin.Context) {
 	students, err := h.service.GetAllStudents()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.RespondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, students)
+	utils.RespondWithJSON(c, http.StatusOK, students)
 }

@@ -2,27 +2,25 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
 
+	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/gin-gonic/gin"
 )
 
 func (h *Handler) DeleteStudentHandler(c *gin.Context) {
-	id := c.Param("id")
-	idInt, err := strconv.ParseInt(id, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	id, ok := utils.ParseParamID(c, "id")
+	if !ok {
 		return
 	}
 
-	err = h.service.DeleteStudent(idInt)
+	err := h.service.DeleteStudent(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.RespondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"id":      idInt,
+	utils.RespondWithJSON(c, http.StatusOK, gin.H{
+		"id":      id,
 		"message": "Student deleted successfully",
 	})
 }

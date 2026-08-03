@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
 	"github.com/gin-gonic/gin"
 )
@@ -10,8 +11,7 @@ import (
 func (h *Handler) CreateStudentHandler(c *gin.Context) {
 	var student models.Student
 
-	if err := c.ShouldBindJSON(&student); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !utils.BindJSON(c, &student) {
 		return
 	}
 
@@ -20,11 +20,11 @@ func (h *Handler) CreateStudentHandler(c *gin.Context) {
 	//call service
 	id, err := h.service.CreateStudent(student)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.RespondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.RespondWithJSON(c, http.StatusOK, gin.H{
 		"id":      id,
 		"message": "student created successfully",
 	})
