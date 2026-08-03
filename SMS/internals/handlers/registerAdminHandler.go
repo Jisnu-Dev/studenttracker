@@ -44,7 +44,7 @@ func (h *Handler) RegisterAdminHandler(c *gin.Context) {
 	// call token service to generate token
 	token, err := h.TokenClient.GenerateToken(c.Request.Context(), id, admin.Email)
 	if err != nil {
-		utils.RespondWithError(c, http.StatusInternalServerError, "Admin created, but token generation failed: "+err.Error())
+		utils.RespondWithError(c, http.StatusInternalServerError, "admin created, but unable to generate token")
 		return
 	}
 

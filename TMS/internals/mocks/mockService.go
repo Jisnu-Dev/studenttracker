@@ -11,6 +11,7 @@ type MockService struct {
 
 	// 2. Mock return data configuration
 	Token      string
+	IsValid    bool
 	AdminID    int64
 	AdminEmail string
 

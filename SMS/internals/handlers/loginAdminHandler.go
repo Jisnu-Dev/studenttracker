@@ -42,7 +42,7 @@ func (h *Handler) LoginAdminHandler(c *gin.Context) {
 
 	token, err := h.TokenClient.GenerateToken(c.Request.Context(), admin.ID, admin.Email)
 	if err != nil {
-		utils.RespondWithError(c, http.StatusInternalServerError, "Failed to generate token: "+err.Error())
+		utils.RespondWithError(c, http.StatusInternalServerError, "unable to login admin")
 		return
 	}
 

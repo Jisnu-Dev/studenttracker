@@ -40,7 +40,7 @@ func (m *MockTokenClient) ValidateToken(ctx context.Context, token string) (bool
 	switch m.ValidateTokenError {
 	case OpInternalError:
 		return false, 0, "", errors.New("token validation service unavailable")
-	case OpNotFound:
+	case OpInvalidToken, OpNotFound:
 		return false, 0, "", nil
 	}
 

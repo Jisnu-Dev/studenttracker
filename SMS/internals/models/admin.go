@@ -6,14 +6,14 @@ import (
 
 type Admin struct {
 	ID           int64     `json:"id"`
-	Name         string    `json:"name" binding:"required"`
-	Email        string    `json:"email" binding:"required"`
-	Password     string    `json:"password" binding:"required"`
+	Name         string    `json:"name"`
+	Email        string    `json:"email"`
+	Password     string    `json:"password"`
 	CreatedAtUTC time.Time `json:"createdAtUtc"`
 	UpdatedAtUTC time.Time `json:"updatedAtUtc"`
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
