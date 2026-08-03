@@ -14,8 +14,8 @@ func (h *Handler) ValidateToken(ctx context.Context, req *tokenpb.ValidateTokenR
 
 	isValid, adminId, adminEmail, err := h.service.ValidateToken(req.GetToken())
 	if err != nil || !isValid {
-		return utils.InvalidTokenResponse(), nil
+		return utils.ValidateTokenResponse(false, 0, ""), nil
 	}
 
-	return utils.ValidTokenResponse(adminId, adminEmail), nil
+	return utils.ValidateTokenResponse(true, adminId, adminEmail), nil
 }

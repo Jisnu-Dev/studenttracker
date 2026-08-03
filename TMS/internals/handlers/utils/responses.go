@@ -4,25 +4,18 @@ import (
 	tokenpb "github.com/Jisnu-Dev/TMS/gen/token"
 )
 
-// TokenSuccessResponse constructs a successful GenerateTokenResponse.
-func TokenSuccessResponse(token string) *tokenpb.GenerateTokenResponse {
+// GenerateTokenResponse constructs a GenerateTokenResponse proto message.
+func GenerateTokenResponse(token string) *tokenpb.GenerateTokenResponse {
 	return &tokenpb.GenerateTokenResponse{
 		Token: token,
 	}
 }
 
-// ValidTokenResponse constructs a valid ValidateTokenResponse.
-func ValidTokenResponse(adminID int64, adminEmail string) *tokenpb.ValidateTokenResponse {
+// ValidateTokenResponse constructs a ValidateTokenResponse proto message.
+func ValidateTokenResponse(isValid bool, adminID int64, adminEmail string) *tokenpb.ValidateTokenResponse {
 	return &tokenpb.ValidateTokenResponse{
-		IsValid:    true,
+		IsValid:    isValid,
 		AdminId:    adminID,
 		AdminEmail: adminEmail,
-	}
-}
-
-// InvalidTokenResponse constructs an invalid ValidateTokenResponse.
-func InvalidTokenResponse() *tokenpb.ValidateTokenResponse {
-	return &tokenpb.ValidateTokenResponse{
-		IsValid: false,
 	}
 }

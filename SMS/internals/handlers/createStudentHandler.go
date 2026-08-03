@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
+	serviceErrors "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
 	"github.com/Jisnu-Dev/studenttracker/internals/validation"
 	"github.com/gin-gonic/gin"
 )
@@ -25,6 +27,10 @@ func (h *Handler) CreateStudentHandler(c *gin.Context) {
 	//call service
 	id, err := h.service.CreateStudent(student)
 	if err != nil {
+		if errors.Is(err, serviceErrors.ErrStudentEmailExists) {
+			utils.RespondWithError(c, http.StatusConflict, err.Error())
+			return
+		}
 		utils.RespondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
