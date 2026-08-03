@@ -1,6 +1,7 @@
 package services
 
 import (
+	"log/slog"
 	"time"
 
 	serviceErrors "github.com/Jisnu-Dev/TMS/internals/services/errors"
@@ -36,6 +37,12 @@ func (s *Service) GenerateToken(adminID int64, adminEmail string) (string, error
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(s.JWTSecret)
 	if err != nil {
+		slog.Error("failed to sign jwt token",
+			slog.String("function", "GenerateToken"),
+			slog.Int64("adminID", adminID),
+			slog.String("adminEmail", adminEmail),
+			slog.Any("error", err),
+		)
 		return "", serviceErrors.ErrGenerateTokenFailed
 	}
 
@@ -45,11 +52,19 @@ func (s *Service) GenerateToken(adminID int64, adminEmail string) (string, error
 func (s *Service) ValidateToken(tokenString string) (bool, int64, string, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			slog.Warn("unexpected signing method",
+				slog.String("function", "ValidateToken"),
+				slog.Any("alg", token.Header["alg"]),
+			)
 			return nil, serviceErrors.ErrSigningMethodMismatch
 		}
 		return s.JWTSecret, nil
 	})
 	if err != nil {
+		slog.Warn("token parsing failed",
+			slog.String("function", "ValidateToken"),
+			slog.Any("error", err),
+		)
 		return false, 0, "", serviceErrors.ErrInvalidToken
 	}
 
