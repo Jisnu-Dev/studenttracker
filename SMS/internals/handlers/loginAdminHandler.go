@@ -2,12 +2,11 @@ package handlers
 
 import (
 	"errors"
-	"log/slog"
 	"net/http"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
-	serviceErrors "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
+	services "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
 	"github.com/Jisnu-Dev/studenttracker/internals/validation"
 	"github.com/gin-gonic/gin"
 )
@@ -24,11 +23,10 @@ func (h *Handler) LoginAdminHandler(c *gin.Context) {
 		return
 	}
 
-	slog.Info("Login request: %v", slog.String("email", req.Email))
 	admin, err := h.service.GetAdminByEmail(req.Email)
 	if err != nil {
-		if errors.Is(err, serviceErrors.ErrAdminNotFound) {
-			utils.RespondWithError(c, http.StatusUnauthorized, serviceErrors.ErrInvalidCredentials.Error())
+		if errors.Is(err, services.ErrAdminNotFound) {
+			utils.RespondWithError(c, http.StatusUnauthorized, services.ErrInvalidCredentials.Error())
 			return
 		}
 		utils.RespondWithError(c, http.StatusInternalServerError, err.Error())
@@ -36,7 +34,7 @@ func (h *Handler) LoginAdminHandler(c *gin.Context) {
 	}
 
 	if !utils.CheckPasswordHash(req.Password, admin.Password) {
-		utils.RespondWithError(c, http.StatusUnauthorized, serviceErrors.ErrInvalidCredentials.Error())
+		utils.RespondWithError(c, http.StatusUnauthorized, services.ErrInvalidCredentials.Error())
 		return
 	}
 

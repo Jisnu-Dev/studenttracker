@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"time"
 
-	serviceErrors "github.com/Jisnu-Dev/TMS/internals/services/errors"
+	services "github.com/Jisnu-Dev/TMS/internals/services/errors"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -48,7 +48,7 @@ func (s *Service) GenerateToken(adminID int64, adminEmail string) (string, error
 			slog.String("adminEmail", adminEmail),
 			slog.Any("error", err),
 		)
-		return "", serviceErrors.ErrGenerateTokenFailed
+		return "", services.ErrGenerateTokenFailed
 	}
 
 	return tokenString, nil
@@ -61,7 +61,7 @@ func (s *Service) ValidateToken(tokenString string) (bool, int64, string, error)
 				slog.String("function", "ValidateToken"),
 				slog.Any("alg", token.Header["alg"]),
 			)
-			return nil, serviceErrors.ErrSigningMethodMismatch
+			return nil, services.ErrSigningMethodMismatch
 		}
 		return s.JWTSecret, nil
 	})
@@ -70,12 +70,12 @@ func (s *Service) ValidateToken(tokenString string) (bool, int64, string, error)
 			slog.String("function", "ValidateToken"),
 			slog.Any("error", err),
 		)
-		return false, 0, "", serviceErrors.ErrInvalidToken
+		return false, 0, "", services.ErrInvalidToken
 	}
 
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
 		return true, claims.AdminID, claims.AdminEmail, nil
 	}
 
-	return false, 0, "", serviceErrors.ErrInvalidToken
+	return false, 0, "", services.ErrInvalidToken
 }

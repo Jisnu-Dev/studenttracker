@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
-	serviceErrors "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
+	services "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,7 +17,7 @@ func (h *Handler) GetStudentByIDHandler(c *gin.Context) {
 
 	student, err := h.service.GetStudentByID(id)
 	if err != nil {
-		if errors.Is(err, serviceErrors.ErrStudentNotFound) {
+		if errors.Is(err, services.ErrStudentNotFound) {
 			utils.RespondWithError(c, http.StatusNotFound, err.Error())
 			return
 		}

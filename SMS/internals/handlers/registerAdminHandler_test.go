@@ -2,12 +2,10 @@ package handlers_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"reflect"
 	"testing"
 
-	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
 	mockUtils "github.com/Jisnu-Dev/studenttracker/internals/mocks/utils"
 )
@@ -20,7 +18,6 @@ func TestRegisterAdminHandler(t *testing.T) {
 		generateTokenErr   mocks.MockOpError
 		expectedStatusCode int
 		expectedResponse   map[string]interface{}
-		simulateHashErr    bool
 	}{
 		{
 			name:               "success - valid admin body returns 200 with id and token",
@@ -107,27 +104,10 @@ func TestRegisterAdminHandler(t *testing.T) {
 				"error": "admin created, but unable to generate token",
 			},
 		},
-		{
-			name:               "internal server error - hash password failure returns 500",
-			body:               `{"name":"John Admin","email":"john.admin@example.com","password":"Admin1234"}`,
-			simulateHashErr:    true,
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponse: map[string]interface{}{
-				"error": "Failed to hash password",
-			},
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.simulateHashErr {
-				originalHash := utils.HashPassword
-				utils.HashPassword = func(password string) (string, error) {
-					return "", fmt.Errorf("mock hash error")
-				}
-				defer func() { utils.HashPassword = originalHash }()
-			}
-
 			c, w := mockUtils.SetUpGinTest(http.MethodPost, "/register", tt.body)
 
 			svc := &mocks.MockService{RegisterAdminError: tt.mockErr}

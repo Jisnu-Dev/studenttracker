@@ -65,7 +65,6 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("failed to create token client: %w", err)
 	}
-	//close the tokenclient
 
 	service := services.NewService(db)
 	handler := handlers.NewHandler(service, tokenClient)

@@ -1,0 +1,26 @@
+mode: set
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/grpcErrors.go:9.55,11.2 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/responses.go:7.73,11.2 1 0
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/responses.go:13.107,19.2 1 0
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:13.72,14.16 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:14.16,16.3 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:17.2,17.27 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:17.27,19.3 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:21.2,22.17 2 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:22.17,24.3 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:25.2,25.33 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:25.33,27.3 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:28.2,28.43 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:28.43,30.3 1 0
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:32.2,33.74 2 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:33.74,35.3 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:37.2,37.12 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:40.72,41.16 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:41.16,43.3 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:45.2,46.17 2 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:46.17,48.3 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:49.2,49.43 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:49.43,51.3 1 0
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:53.2,53.36 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:53.36,55.3 1 1
+github.com/Jisnu-Dev/TMS/internals/handlers/utils/validation.go:57.2,57.12 1 1

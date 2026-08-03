@@ -6,9 +6,8 @@ import (
 	"log/slog"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
-	serviceErrors "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
+	services "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
 	"github.com/Jisnu-Dev/studenttracker/internals/services/utils"
-	"github.com/lib/pq"
 )
 
 type ServiceInterface interface {
@@ -30,28 +29,20 @@ func NewService(db *sql.DB) *Service {
 	return &Service{db: db}
 }
 
-func isUniqueViolation(err error) bool {
-	var pqErr *pq.Error
-	if errors.As(err, &pqErr) {
-		return pqErr.Code == "23505"
-	}
-	return false
-}
-
 func (s *Service) CreateStudent(student models.Student) (int, error) {
 	query := `INSERT INTO student (name, email, department, semester, age) VALUES ($1, $2, $3, $4, $5) RETURNING id`
 	var id int
 
 	if err := s.db.QueryRow(query, student.Name, student.Email, student.Department, student.Semester, student.Age).Scan(&id); err != nil {
-		if isUniqueViolation(err) {
-			return 0, serviceErrors.ErrStudentEmailExists
+		if utils.IsUniqueViolation(err) {
+			return 0, services.ErrStudentEmailExists
 		}
 		slog.Error("database query failed",
 			slog.String("function", "CreateStudent"),
 			slog.String("email", student.Email),
 			slog.Any("error", err),
 		)
-		return 0, serviceErrors.ErrCreateStudentFailed
+		return 0, services.ErrCreateStudentFailed
 	}
 
 	return id, nil
@@ -66,7 +57,7 @@ func (s *Service) GetAllStudents() ([]models.Student, error) {
 			slog.String("function", "GetAllStudents"),
 			slog.Any("error", err),
 		)
-		return nil, serviceErrors.ErrGetAllStudentsFailed
+		return nil, services.ErrGetAllStudentsFailed
 	}
 	defer rows.Close()
 
@@ -78,7 +69,7 @@ func (s *Service) GetAllStudents() ([]models.Student, error) {
 				slog.String("function", "GetAllStudents"),
 				slog.Any("error", err),
 			)
-			return nil, serviceErrors.ErrGetAllStudentsFailed
+			return nil, services.ErrGetAllStudentsFailed
 		}
 
 		student.CreatedAtUTC = student.CreatedAtUTC.UTC()
@@ -91,7 +82,7 @@ func (s *Service) GetAllStudents() ([]models.Student, error) {
 			slog.String("function", "GetAllStudents"),
 			slog.Any("error", err),
 		)
-		return nil, serviceErrors.ErrGetAllStudentsFailed
+		return nil, services.ErrGetAllStudentsFailed
 	}
 
 	return students, nil
@@ -103,14 +94,14 @@ func (s *Service) GetStudentByID(id int64) (models.Student, error) {
 	var student models.Student
 	if err := s.db.QueryRow(query, id).Scan(&student.ID, &student.Name, &student.Email, &student.Department, &student.Semester, &student.Age, &student.CreatedAtUTC, &student.UpdatedAtUTC); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return models.Student{}, serviceErrors.ErrStudentNotFound
+			return models.Student{}, services.ErrStudentNotFound
 		}
 		slog.Error("database query failed",
 			slog.String("function", "GetStudentByID"),
 			slog.Int64("studentID", id),
 			slog.Any("error", err),
 		)
-		return models.Student{}, serviceErrors.ErrGetStudentByIDFailed
+		return models.Student{}, services.ErrGetStudentByIDFailed
 	}
 	return student, nil
 }
@@ -125,7 +116,7 @@ func (s *Service) DeleteStudent(id int64) error {
 			slog.Int64("studentID", id),
 			slog.Any("error", err),
 		)
-		return serviceErrors.ErrDeleteStudentFailed
+		return services.ErrDeleteStudentFailed
 	}
 
 	rowsAffected, err := results.RowsAffected()
@@ -135,10 +126,10 @@ func (s *Service) DeleteStudent(id int64) error {
 			slog.Int64("studentID", id),
 			slog.Any("error", err),
 		)
-		return serviceErrors.ErrDeleteStudentFailed
+		return services.ErrDeleteStudentFailed
 	}
 	if rowsAffected == 0 {
-		return serviceErrors.ErrStudentNotFound
+		return services.ErrStudentNotFound
 	}
 
 	return nil
@@ -149,15 +140,15 @@ func (s *Service) UpdateStudent(id int64, student models.Student) error {
 
 	result, err := s.db.Exec(query, student.Name, student.Email, student.Department, student.Semester, student.Age, id)
 	if err != nil {
-		if isUniqueViolation(err) {
-			return serviceErrors.ErrStudentEmailExists
+		if utils.IsUniqueViolation(err) {
+			return services.ErrStudentEmailExists
 		}
 		slog.Error("database exec failed",
 			slog.String("function", "UpdateStudent"),
 			slog.Int64("studentID", id),
 			slog.Any("error", err),
 		)
-		return serviceErrors.ErrUpdateStudentFailed
+		return services.ErrUpdateStudentFailed
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
@@ -166,10 +157,10 @@ func (s *Service) UpdateStudent(id int64, student models.Student) error {
 			slog.Int64("studentID", id),
 			slog.Any("error", err),
 		)
-		return serviceErrors.ErrUpdateStudentFailed
+		return services.ErrUpdateStudentFailed
 	}
 	if rowsAffected == 0 {
-		return serviceErrors.ErrStudentNotFound
+		return services.ErrStudentNotFound
 	}
 	return nil
 }
@@ -177,20 +168,20 @@ func (s *Service) UpdateStudent(id int64, student models.Student) error {
 func (s *Service) PatchStudent(id int64, student models.PatchStudent) error {
 	query, args, err := utils.BuildPatchQuery(id, student)
 	if err != nil {
-		return serviceErrors.ErrNoFieldsToUpdate
+		return services.ErrNoFieldsToUpdate
 	}
 
 	result, err := s.db.Exec(query, args...)
 	if err != nil {
-		if isUniqueViolation(err) {
-			return serviceErrors.ErrStudentEmailExists
+		if utils.IsUniqueViolation(err) {
+			return services.ErrStudentEmailExists
 		}
 		slog.Error("database exec failed",
 			slog.String("function", "PatchStudent"),
 			slog.Int64("studentID", id),
 			slog.Any("error", err),
 		)
-		return serviceErrors.ErrPatchStudentFailed
+		return services.ErrPatchStudentFailed
 	}
 
 	rowsAffected, err := result.RowsAffected()
@@ -200,10 +191,10 @@ func (s *Service) PatchStudent(id int64, student models.PatchStudent) error {
 			slog.Int64("studentID", id),
 			slog.Any("error", err),
 		)
-		return serviceErrors.ErrPatchStudentFailed
+		return services.ErrPatchStudentFailed
 	}
 	if rowsAffected == 0 {
-		return serviceErrors.ErrStudentNotFound
+		return services.ErrStudentNotFound
 	}
 	return nil
 }
@@ -214,15 +205,15 @@ func (s *Service) RegisterAdmin(admin models.Admin) (int64, error) {
 	var id int64
 
 	if err := s.db.QueryRow(query, admin.Name, admin.Email, admin.Password).Scan(&id); err != nil {
-		if isUniqueViolation(err) {
-			return 0, serviceErrors.ErrAdminEmailExists
+		if utils.IsUniqueViolation(err) {
+			return 0, services.ErrAdminEmailExists
 		}
 		slog.Error("database query failed",
 			slog.String("function", "RegisterAdmin"),
 			slog.String("email", admin.Email),
 			slog.Any("error", err),
 		)
-		return 0, serviceErrors.ErrRegisterAdminFailed
+		return 0, services.ErrRegisterAdminFailed
 	}
 
 	return id, nil
@@ -234,14 +225,14 @@ func (s *Service) GetAdminByEmail(email string) (models.Admin, error) {
 	var admin models.Admin
 	if err := s.db.QueryRow(query, email).Scan(&admin.ID, &admin.Name, &admin.Email, &admin.Password); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return models.Admin{}, serviceErrors.ErrAdminNotFound
+			return models.Admin{}, services.ErrAdminNotFound
 		}
 		slog.Error("database query failed",
 			slog.String("function", "GetAdminByEmail"),
 			slog.String("email", email),
 			slog.Any("error", err),
 		)
-		return models.Admin{}, serviceErrors.ErrGetAdminByEmailFailed
+		return models.Admin{}, services.ErrGetAdminByEmailFailed
 	}
 
 	return admin, nil

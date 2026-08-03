@@ -6,7 +6,7 @@ import (
 
 	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
-	serviceErrors "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
+	services "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
 	"github.com/Jisnu-Dev/studenttracker/internals/validation"
 	"github.com/gin-gonic/gin"
 )
@@ -33,7 +33,7 @@ func (h *Handler) RegisterAdminHandler(c *gin.Context) {
 
 	id, err := h.service.RegisterAdmin(admin)
 	if err != nil {
-		if errors.Is(err, serviceErrors.ErrAdminEmailExists) {
+		if errors.Is(err, services.ErrAdminEmailExists) {
 			utils.RespondWithError(c, http.StatusConflict, err.Error())
 			return
 		}
@@ -41,7 +41,6 @@ func (h *Handler) RegisterAdminHandler(c *gin.Context) {
 		return
 	}
 
-	// call token service to generate token
 	token, err := h.TokenClient.GenerateToken(c.Request.Context(), id, admin.Email)
 	if err != nil {
 		utils.RespondWithError(c, http.StatusInternalServerError, "admin created, but unable to generate token")

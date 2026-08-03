@@ -2,7 +2,7 @@ package mocks
 
 import (
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
-	serviceErrors "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
+	services "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
 )
 
 type MockService struct {
@@ -37,9 +37,9 @@ func (m *MockService) CreateStudent(student models.Student) (int, error) {
 
 	switch m.CreateStudentError {
 	case OpEmailExists:
-		return 0, serviceErrors.ErrStudentEmailExists
+		return 0, services.ErrStudentEmailExists
 	case OpInternalError:
-		return 0, serviceErrors.ErrCreateStudentFailed
+		return 0, services.ErrCreateStudentFailed
 	}
 
 	if m.CreatedStudentID != 0 {
@@ -51,7 +51,7 @@ func (m *MockService) CreateStudent(student models.Student) (int, error) {
 func (m *MockService) GetAllStudents() ([]models.Student, error) {
 	switch m.GetAllStudentsError {
 	case OpInternalError:
-		return nil, serviceErrors.ErrGetAllStudentsFailed
+		return nil, services.ErrGetAllStudentsFailed
 	}
 
 	if m.ReturnEmptyStudents {
@@ -72,9 +72,9 @@ func (m *MockService) GetStudentByID(id int64) (models.Student, error) {
 
 	switch m.GetStudentByIDError {
 	case OpNotFound:
-		return models.Student{}, serviceErrors.ErrStudentNotFound
+		return models.Student{}, services.ErrStudentNotFound
 	case OpInternalError:
-		return models.Student{}, serviceErrors.ErrGetStudentByIDFailed
+		return models.Student{}, services.ErrGetStudentByIDFailed
 	}
 
 	if m.Student.ID != 0 {
@@ -88,9 +88,9 @@ func (m *MockService) DeleteStudent(id int64) error {
 
 	switch m.DeleteStudentError {
 	case OpNotFound:
-		return serviceErrors.ErrStudentNotFound
+		return services.ErrStudentNotFound
 	case OpInternalError:
-		return serviceErrors.ErrDeleteStudentFailed
+		return services.ErrDeleteStudentFailed
 	}
 
 	return nil
@@ -102,11 +102,11 @@ func (m *MockService) UpdateStudent(id int64, student models.Student) error {
 
 	switch m.UpdateStudentError {
 	case OpNotFound:
-		return serviceErrors.ErrStudentNotFound
+		return services.ErrStudentNotFound
 	case OpEmailExists:
-		return serviceErrors.ErrStudentEmailExists
+		return services.ErrStudentEmailExists
 	case OpInternalError:
-		return serviceErrors.ErrUpdateStudentFailed
+		return services.ErrUpdateStudentFailed
 	}
 
 	return nil
@@ -118,13 +118,13 @@ func (m *MockService) PatchStudent(id int64, student models.PatchStudent) error 
 
 	switch m.PatchStudentError {
 	case OpNotFound:
-		return serviceErrors.ErrStudentNotFound
+		return services.ErrStudentNotFound
 	case OpEmailExists:
-		return serviceErrors.ErrStudentEmailExists
+		return services.ErrStudentEmailExists
 	case OpNoFieldsToUpdate:
-		return serviceErrors.ErrNoFieldsToUpdate
+		return services.ErrNoFieldsToUpdate
 	case OpInternalError:
-		return serviceErrors.ErrPatchStudentFailed
+		return services.ErrPatchStudentFailed
 	}
 
 	return nil
@@ -135,9 +135,9 @@ func (m *MockService) RegisterAdmin(admin models.Admin) (int64, error) {
 
 	switch m.RegisterAdminError {
 	case OpEmailExists:
-		return 0, serviceErrors.ErrAdminEmailExists
+		return 0, services.ErrAdminEmailExists
 	case OpInternalError:
-		return 0, serviceErrors.ErrRegisterAdminFailed
+		return 0, services.ErrRegisterAdminFailed
 	}
 
 	if m.RegisteredAdminID != 0 {
@@ -151,9 +151,9 @@ func (m *MockService) GetAdminByEmail(email string) (models.Admin, error) {
 
 	switch m.GetAdminByEmailError {
 	case OpNotFound:
-		return models.Admin{}, serviceErrors.ErrAdminNotFound
+		return models.Admin{}, services.ErrAdminNotFound
 	case OpInternalError:
-		return models.Admin{}, serviceErrors.ErrGetAdminByEmailFailed
+		return models.Admin{}, services.ErrGetAdminByEmailFailed
 	}
 
 	if m.Admin.Email != "" {

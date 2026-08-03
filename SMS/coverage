@@ -6,7 +6,7 @@ github.com/Jisnu-Dev/studenttracker/internals/handlers/utils/bindJson.go:9.48,10
 github.com/Jisnu-Dev/studenttracker/internals/handlers/utils/bindJson.go:10.49,13.3 2 0
 github.com/Jisnu-Dev/studenttracker/internals/handlers/utils/bindJson.go:14.2,14.13 1 0
 github.com/Jisnu-Dev/studenttracker/internals/handlers/utils/checkPasswordHash.go:7.52,10.2 2 0
-github.com/Jisnu-Dev/studenttracker/internals/handlers/utils/hashPassword.go:7.58,10.2 2 0
+github.com/Jisnu-Dev/studenttracker/internals/handlers/utils/hashPassword.go:7.52,10.2 2 0
 github.com/Jisnu-Dev/studenttracker/internals/handlers/utils/respondWithError.go:5.71,7.2 1 0
 github.com/Jisnu-Dev/studenttracker/internals/handlers/utils/respondWithJSON.go:5.67,7.2 1 0
 github.com/Jisnu-Dev/studenttracker/internals/handlers/createStudentHandler.go:14.56,17.34 2 1
@@ -69,7 +69,7 @@ github.com/Jisnu-Dev/studenttracker/internals/handlers/registerAdminHandler.go:1
 github.com/Jisnu-Dev/studenttracker/internals/handlers/registerAdminHandler.go:21.2,21.65 1 1
 github.com/Jisnu-Dev/studenttracker/internals/handlers/registerAdminHandler.go:21.65,24.3 2 1
 github.com/Jisnu-Dev/studenttracker/internals/handlers/registerAdminHandler.go:26.2,27.16 2 1
-github.com/Jisnu-Dev/studenttracker/internals/handlers/registerAdminHandler.go:27.16,30.3 2 1
+github.com/Jisnu-Dev/studenttracker/internals/handlers/registerAdminHandler.go:27.16,30.3 2 0
 github.com/Jisnu-Dev/studenttracker/internals/handlers/registerAdminHandler.go:32.2,35.16 3 1
 github.com/Jisnu-Dev/studenttracker/internals/handlers/registerAdminHandler.go:35.16,36.56 1 1
 github.com/Jisnu-Dev/studenttracker/internals/handlers/registerAdminHandler.go:36.56,39.4 2 1

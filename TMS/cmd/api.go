@@ -28,9 +28,6 @@ func run() error {
 
 	tokenpb.RegisterTokenServiceServer(grpcServer, handler)
 
-	// TODO: Register your generated service here after running protoc:
-	// tokenpb.RegisterTokenServiceServer(grpcServer, handler)
-
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", config.GRPCPort))
 	if err != nil {
 		return fmt.Errorf("failed to create listener: %w", err)

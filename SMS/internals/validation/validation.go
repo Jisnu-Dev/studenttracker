@@ -22,7 +22,6 @@ var validDepartments = map[models.DepartmentType]bool{
 	models.AIML:  true,
 }
 
-// Field Validations
 func ValidateName(name string) error {
 	if err := vutils.ValidateCleanWhitespace("name", name); err != nil {
 		return err

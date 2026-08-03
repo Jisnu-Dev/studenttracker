@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
+	"github.com/lib/pq"
 )
 
 func BuildPatchQuery(id int64, student models.PatchStudent) (string, []any, error) {
@@ -51,4 +52,14 @@ func BuildPatchQuery(id int64, student models.PatchStudent) (string, []any, erro
 	query := `UPDATE student SET ` + strings.Join(parts, ", ") + `, "updatedAtUTC" = NOW() WHERE id = $` + strconv.Itoa(paramIndex)
 
 	return query, args, nil
+}
+
+const PostgresUniqueViolationCode = "23505"
+
+func IsUniqueViolation(err error) bool {
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) {
+		return pqErr.Code == PostgresUniqueViolationCode
+	}
+	return false
 }

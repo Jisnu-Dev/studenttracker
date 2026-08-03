@@ -1,8 +1,6 @@
 package mocks
 
-import (
-	serviceErrors "github.com/Jisnu-Dev/TMS/internals/services/errors"
-)
+import services "github.com/Jisnu-Dev/TMS/internals/services/errors"
 
 type MockService struct {
 	// 1. Error simulation triggers
@@ -27,7 +25,7 @@ func (m *MockService) GenerateToken(adminID int64, adminEmail string) (string, e
 
 	switch m.GenerateTokenError {
 	case OpInternalError:
-		return "", serviceErrors.ErrGenerateTokenFailed
+		return "", services.ErrGenerateTokenFailed
 	}
 
 	if m.Token != "" {
@@ -41,11 +39,11 @@ func (m *MockService) ValidateToken(tokenString string) (bool, int64, string, er
 
 	switch m.ValidateTokenError {
 	case OpInvalidToken:
-		return false, 0, "", serviceErrors.ErrInvalidToken
+		return false, 0, "", services.ErrInvalidToken
 	case OpSigningMethodMismatch:
-		return false, 0, "", serviceErrors.ErrSigningMethodMismatch
+		return false, 0, "", services.ErrSigningMethodMismatch
 	case OpInternalError:
-		return false, 0, "", serviceErrors.ErrValidateTokenFailed
+		return false, 0, "", services.ErrValidateTokenFailed
 	}
 
 	adminID := int64(1)

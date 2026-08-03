@@ -8,7 +8,7 @@ import (
 
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
 	mockUtils "github.com/Jisnu-Dev/studenttracker/internals/mocks/utils"
-	serviceErrors "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
+	services "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -147,7 +147,7 @@ func TestPatchStudentHandler(t *testing.T) {
 			mockErr:            mocks.OpNoFieldsToUpdate,
 			expectedStatusCode: http.StatusBadRequest,
 			expectedResponse: map[string]interface{}{
-				"error": serviceErrors.ErrNoFieldsToUpdate.Error(),
+				"error": services.ErrNoFieldsToUpdate.Error(),
 			},
 		},
 		{
