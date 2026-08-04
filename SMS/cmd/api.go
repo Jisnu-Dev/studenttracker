@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Jisnu-Dev/studenttracker/internals/clients"
+	"github.com/Jisnu-Dev/studenttracker/internals/grpcClient"
 	"github.com/Jisnu-Dev/studenttracker/internals/handlers"
 	"github.com/Jisnu-Dev/studenttracker/internals/middlewares"
 	"github.com/Jisnu-Dev/studenttracker/internals/services"
@@ -31,7 +31,7 @@ type DatabaseConfig struct {
 	SSLMode  string
 }
 
-func mount(router *gin.Engine, handler *handlers.Handler, tokenClient *clients.TokenClient) {
+func mount(router *gin.Engine, handler *handlers.Handler, tokenClient *grpcClient.TokenClient) {
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "API is good."})
 	})
@@ -61,7 +61,7 @@ func run() error {
 	defer db.Close()
 
 	//connecting to TMS gRPC service
-	tokenClient, err := clients.NewTokenClient(config.TMSUrl)
+	tokenClient, err := grpcClient.NewTokenClient(config.TMSUrl)
 	if err != nil {
 		return fmt.Errorf("failed to create token client: %w", err)
 	}

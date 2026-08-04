@@ -1,13 +1,13 @@
 package handlers_test
 
 import (
-	"encoding/json"
+	"bytes"
 	"net/http"
-	"reflect"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
-	mockUtils "github.com/Jisnu-Dev/studenttracker/internals/mocks/utils"
 )
 
 func TestRegisterAdminHandler(t *testing.T) {
@@ -17,118 +17,97 @@ func TestRegisterAdminHandler(t *testing.T) {
 		mockErr            mocks.MockOpError
 		generateTokenErr   mocks.MockOpError
 		expectedStatusCode int
-		expectedResponse   map[string]interface{}
+		expectedBody       string
 	}{
 		{
 			name:               "success - valid admin body returns 200 with id and token",
 			body:               `{"name":"John Admin","email":"john.admin@example.com","password":"Admin1234"}`,
 			expectedStatusCode: http.StatusOK,
-			expectedResponse: map[string]interface{}{
-				"id":      float64(1), // Default mock returned ID
-				"token":   "mock.jwt.token",
-				"message": "Admin created successfully",
-			},
+			expectedBody:       `{"id":1,"message":"Admin created successfully","token":"mock.jwt.token"}`,
 		},
 		{
 			name:               "bad request - malformed JSON body returns 400",
 			body:               `{`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedResponse: map[string]interface{}{
-				"error": "invalid request payload",
-			},
+			expectedBody:       `{"error":"invalid request payload"}`,
 		},
 		{
 			name:               "bad request - empty name fails validation",
 			body:               `{"name":"","email":"john.admin@example.com","password":"Admin1234"}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedResponse: map[string]interface{}{
-				"error": "name: name is required",
-			},
+			expectedBody:       `{"error":"name: name is required"}`,
 		},
 		{
 			name:               "bad request - empty email fails validation",
 			body:               `{"name":"John Admin","email":"","password":"Admin1234"}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedResponse: map[string]interface{}{
-				"error": "email: email is required",
-			},
+			expectedBody:       `{"error":"email: email is required"}`,
 		},
 		{
 			name:               "bad request - empty password fails validation",
 			body:               `{"name":"John Admin","email":"john.admin@example.com","password":""}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedResponse: map[string]interface{}{
-				"error": "password: password is required",
-			},
+			expectedBody:       `{"error":"password: password is required"}`,
 		},
 		{
 			name:               "bad request - password too short fails validation",
 			body:               `{"name":"John Admin","email":"john.admin@example.com","password":"ab1"}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedResponse: map[string]interface{}{
-				"error": "password: password must be at least 8 characters long",
-			},
+			expectedBody:       `{"error":"password: password must be at least 8 characters long"}`,
 		},
 		{
 			name:               "bad request - password with no digit fails validation",
 			body:               `{"name":"John Admin","email":"john.admin@example.com","password":"OnlyLetters"}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedResponse: map[string]interface{}{
-				"error": "password: password must contain at least one letter and one number",
-			},
+			expectedBody:       `{"error":"password: password must contain at least one letter and one number"}`,
 		},
 		{
 			name:               "conflict - duplicate admin email returns 409",
 			body:               `{"name":"John Admin","email":"john.admin@example.com","password":"Admin1234"}`,
 			mockErr:            mocks.OpEmailExists,
 			expectedStatusCode: http.StatusConflict,
-			expectedResponse: map[string]interface{}{
-				"error": "admin with this email already exists",
-			},
+			expectedBody:       `{"error":"admin with this email already exists"}`,
 		},
 		{
 			name:               "internal server error - service failure returns 500",
 			body:               `{"name":"John Admin","email":"john.admin@example.com","password":"Admin1234"}`,
 			mockErr:            mocks.OpInternalError,
 			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponse: map[string]interface{}{
-				"error": "unable to register admin",
-			},
+			expectedBody:       `{"error":"unable to register admin"}`,
 		},
 		{
 			name:               "internal server error - token generation failure after admin created returns 500",
 			body:               `{"name":"John Admin","email":"john.admin@example.com","password":"Admin1234"}`,
 			generateTokenErr:   mocks.OpInternalError,
 			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponse: map[string]interface{}{
-				"error": "admin created, but unable to generate token",
-			},
+			expectedBody:       `{"error":"admin created, but unable to generate token"}`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, w := mockUtils.SetUpGinTest(http.MethodPost, "/register", tt.body)
-
 			svc := &mocks.MockService{RegisterAdminError: tt.mockErr}
 			tc := &mocks.MockTokenClient{GenerateTokenError: tt.generateTokenErr}
-			handler := newHandler(svc, tc)
-			handler.RegisterAdminHandler(c)
+			
+			_, mux := setupMockHandler(svc, tc)
 
-			if w.Code != tt.expectedStatusCode {
-				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedStatusCode, w.Code, w.Body.String())
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/register",
+				bytes.NewBufferString(tt.body),
+			)
+			req.Header.Set("Content-Type", "application/json")
+			
+			rr := httptest.NewRecorder()
+
+			mux.ServeHTTP(rr, req)
+
+			if rr.Code != tt.expectedStatusCode {
+				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedStatusCode, rr.Code, rr.Body.String())
 			}
 
-			if tt.expectedResponse != nil {
-				var actualResponse map[string]interface{}
-				err := json.Unmarshal(w.Body.Bytes(), &actualResponse)
-				if err != nil {
-					t.Fatalf("failed to parse response body as JSON: %v, body was: %s", err, w.Body.String())
-				}
-
-				if !reflect.DeepEqual(tt.expectedResponse, actualResponse) {
-					t.Errorf("expected response %v, got %v", tt.expectedResponse, actualResponse)
-				}
+			if got := strings.TrimSpace(rr.Body.String()); got != tt.expectedBody {
+				t.Errorf("expected body %q, got %q", tt.expectedBody, got)
 			}
 		})
 	}

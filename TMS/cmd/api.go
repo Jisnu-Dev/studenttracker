@@ -8,7 +8,6 @@ import (
 
 	tokenpb "github.com/Jisnu-Dev/TMS/gen/token"
 	"github.com/Jisnu-Dev/TMS/internals/handlers"
-	"github.com/Jisnu-Dev/TMS/internals/services"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 )
@@ -21,8 +20,7 @@ type AppConfig struct {
 func run() error {
 	config := loadConfig()
 
-	service := services.NewService(config.JWTSecret)
-	handler := handlers.NewHandler(service)
+	handler := handlers.NewHandler(config.JWTSecret)
 
 	grpcServer := grpc.NewServer()
 

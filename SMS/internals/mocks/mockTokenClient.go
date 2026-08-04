@@ -6,14 +6,16 @@ import (
 )
 
 type MockTokenClient struct {
+	// 1. Error simulation triggers
 	GenerateTokenError MockOpError
 	ValidateTokenError MockOpError
 
+	// 2. Mock return data configuration
 	Token   string
-	IsValid bool
 	AdminID int64
 	Email   string
 
+	// 3. Captured arguments (for verification in tests)
 	CapturedAdminID    int64
 	CapturedAdminEmail string
 	CapturedToken      string

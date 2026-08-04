@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Jisnu-Dev/studenttracker/internals/clients"
+	"github.com/Jisnu-Dev/studenttracker/internals/grpcClient"
 	"github.com/gin-gonic/gin"
 )
 
-func AuthMiddleware(tokenClient clients.TokenClientInterface) gin.HandlerFunc {
+func AuthMiddleware(tokenClient grpcClient.TokenClientInterface) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {

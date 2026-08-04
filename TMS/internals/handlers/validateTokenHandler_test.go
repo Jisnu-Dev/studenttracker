@@ -1,126 +1,230 @@
-package handlers_test
+package handlers
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	tokenpb "github.com/Jisnu-Dev/TMS/gen/token"
-	"github.com/Jisnu-Dev/TMS/internals/mocks"
+	"github.com/golang-jwt/jwt/v5"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-func TestValidateTokenHandler(t *testing.T) {
+// mustSignToken signs claims with the HS256 method using the given secret,
+// failing the test immediately if signing fails.
+func mustSignToken(t *testing.T, secret []byte, claims Claims) string {
+	t.Helper()
+
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	s, err := tok.SignedString(secret)
+	if err != nil {
+		t.Fatalf("failed to sign test token: %v", err)
+	}
+	return s
+}
+
+// mustSignNoneAlgToken signs claims with the "none" algorithm, used to
+// exercise the handler's non-HMAC signing-method rejection path.
+//
+// NOTE: relies on jwt.SigningMethodNone / jwt.UnsafeAllowNoneSignatureType
+// being available in your vendored golang-jwt/jwt/v5 version. If not, swap
+// this for an RS256-signed token instead — everything else in this file is
+// independent of how the mismatched-algorithm token is produced.
+func mustSignNoneAlgToken(t *testing.T, claims Claims) string {
+	t.Helper()
+
+	tok := jwt.NewWithClaims(jwt.SigningMethodNone, claims)
+	s, err := tok.SignedString(jwt.UnsafeAllowNoneSignatureType)
+	if err != nil {
+		t.Fatalf("failed to sign none-alg test token: %v", err)
+	}
+	return s
+}
+
+func TestValidateToken(t *testing.T) {
+	secret := []byte("test-secret-key")
+	h := &Handler{JWTSecret: secret}
+
+	now := time.Now()
+
+	validClaims := Claims{
+		AdminID:    7,
+		AdminEmail: "admin@example.com",
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(5 * time.Hour)),
+		},
+	}
+
+	expiredClaims := Claims{
+		AdminID:    7,
+		AdminEmail: "admin@example.com",
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now.Add(-10 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(-5 * time.Hour)),
+		},
+	}
+
+	notYetValidClaims := Claims{
+		AdminID:    7,
+		AdminEmail: "admin@example.com",
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now.Add(1 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(5 * time.Hour)),
+		},
+	}
+
+	validToken := mustSignToken(t, secret, validClaims)
+	expiredToken := mustSignToken(t, secret, expiredClaims)
+	notYetValidToken := mustSignToken(t, secret, notYetValidClaims)
+	wrongSigToken := mustSignToken(t, []byte("a-different-secret"), validClaims)
+	algMismatchToken := mustSignNoneAlgToken(t, validClaims)
+
+	// Passes ValidateValidateTokenReq (exactly two dots, no whitespace) but
+	// the payload segment contains characters outside the base64url
+	// alphabet, so jwt.ParseWithClaims fails with jwt.ErrTokenMalformed.
+	const structurallyValidButGarbageToken = "abc.!!!.def"
+
 	tests := []struct {
-		name             string
-		request          *tokenpb.ValidateTokenRequest
-		mockErr          mocks.MockOpError
-		expectedCode     codes.Code
-		expectedResponse *tokenpb.ValidateTokenResponse
+		name  string
+		req   *tokenpb.ValidateTokenRequest
+		token string // used instead of req when req is nil, for readability
+
+		wantGRPCErr   bool
+		wantCode      codes.Code
+		expectedError string
+
+		wantInternalErr bool // expects the bare ErrValidateTokenFailed sentinel
+
+		wantIsValid    bool
+		wantAdminID    int64
+		wantAdminEmail string
 	}{
 		{
-			name:             "success - valid token returns isValid=true with admin details",
-			request:          &tokenpb.ValidateTokenRequest{Token: "mock.valid.token"},
-			expectedCode:     codes.OK,
-			expectedResponse: &tokenpb.ValidateTokenResponse{
-				IsValid:    true,
-				AdminId:    1,
-				AdminEmail: "admin@example.com",
-			},
+			name:          "fails when request is nil",
+			req:           nil,
+			wantGRPCErr:   true,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "request cannot be nil",
 		},
 		{
-			name:          "invalid argument - nil request returns InvalidArgument",
-			request:       nil,
-			expectedCode:  codes.InvalidArgument,
+			name:          "fails when token is empty",
+			token:         "",
+			wantGRPCErr:   true,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "token is required",
 		},
 		{
-			name:          "invalid argument - empty token returns InvalidArgument",
-			request:       &tokenpb.ValidateTokenRequest{Token: ""},
-			expectedCode:  codes.InvalidArgument,
+			name:          "fails when token is only whitespace",
+			token:         "   ",
+			wantGRPCErr:   true,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "token is required",
 		},
 		{
-			name:          "invalid argument - token with whitespace returns InvalidArgument",
-			request:       &tokenpb.ValidateTokenRequest{Token: "mock valid token"},
-			expectedCode:  codes.InvalidArgument,
+			name:          "fails when token contains internal whitespace",
+			token:         "abc def.ghi.jkl", // 2 dots, so only the whitespace check should trip
+			wantGRPCErr:   true,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "token cannot contain whitespace",
 		},
 		{
-			name:          "invalid argument - token with wrong number of segments returns InvalidArgument",
-			request:       &tokenpb.ValidateTokenRequest{Token: "onlyone"},
-			expectedCode:  codes.InvalidArgument,
+			name:          "fails when token structure has the wrong number of segments",
+			token:         "abcdef", // 0 dots
+			wantGRPCErr:   true,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "malformed token structure",
 		},
 		{
-			name:             "success - invalid token from service returns isValid=false with zero values",
-			request:          &tokenpb.ValidateTokenRequest{Token: "mock.invalid.token"},
-			mockErr:          mocks.OpInvalidToken,
-			expectedCode:     codes.OK,
-			expectedResponse: &tokenpb.ValidateTokenResponse{
-				IsValid:    false,
-				AdminId:    0,
-				AdminEmail: "",
-			},
+			name:          "fails and aggregates multiple structural errors",
+			token:         "abc def", // 0 dots AND contains whitespace
+			wantGRPCErr:   true,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "token cannot contain whitespace; malformed token structure",
 		},
 		{
-			name:             "success - signing method mismatch returns isValid=false with zero values",
-			request:          &tokenpb.ValidateTokenRequest{Token: "mock.mismatch.token"},
-			mockErr:          mocks.OpSigningMethodMismatch,
-			expectedCode:     codes.OK,
-			expectedResponse: &tokenpb.ValidateTokenResponse{
-				IsValid:    false,
-				AdminId:    0,
-				AdminEmail: "",
-			},
+			name:           "returns invalid for a structurally-valid but garbage token",
+			token:          structurallyValidButGarbageToken,
+			wantIsValid:    false,
+			wantAdminID:    0,
+			wantAdminEmail: "",
 		},
 		{
-			name:             "success - internal service error returns isValid=false with zero values",
-			request:          &tokenpb.ValidateTokenRequest{Token: "mock.error.token"},
-			mockErr:          mocks.OpInternalError,
-			expectedCode:     codes.OK,
-			expectedResponse: &tokenpb.ValidateTokenResponse{
-				IsValid:    false,
-				AdminId:    0,
-				AdminEmail: "",
-			},
+			name:           "returns invalid for a token signed with the wrong secret",
+			token:          wrongSigToken,
+			wantIsValid:    false,
+			wantAdminID:    0,
+			wantAdminEmail: "",
+		},
+		{
+			name:           "returns invalid for an expired token",
+			token:          expiredToken,
+			wantIsValid:    false,
+			wantAdminID:    0,
+			wantAdminEmail: "",
+		},
+		{
+			name:           "returns invalid for a not-yet-valid token",
+			token:          notYetValidToken,
+			wantIsValid:    false,
+			wantAdminID:    0,
+			wantAdminEmail: "",
+		},
+		{
+			name:            "BUG: algorithm mismatch is misclassified as an internal error",
+			token:           algMismatchToken,
+			wantInternalErr: true,
+		},
+		{
+			name:           "succeeds for a valid token and returns its claims",
+			token:          validToken,
+			wantIsValid:    true,
+			wantAdminID:    7,
+			wantAdminEmail: "admin@example.com",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mocks.MockService{ValidateTokenError: tt.mockErr}
-			handler := newTMSHandler(svc)
-
-			resp, err := handler.ValidateToken(context.Background(), tt.request)
-
-			if tt.expectedCode == codes.InvalidArgument {
-				if err == nil {
-					t.Fatal("expected an error but got nil")
-				}
-				st, ok := status.FromError(err)
-				if !ok {
-					t.Fatalf("expected a gRPC status error, got %v", err)
-				}
-				if st.Code() != codes.InvalidArgument {
-					t.Errorf("expected gRPC code %v, got %v", codes.InvalidArgument, st.Code())
-				}
-				return
+			req := tt.req
+			if req == nil && tt.name != "fails when request is nil" {
+				req = &tokenpb.ValidateTokenRequest{Token: tt.token}
 			}
 
-			// For codes.OK cases (which includes all service-level failures — they return isValid=false, not a gRPC error)
-			if err != nil {
-				t.Fatalf("expected no gRPC error, got %v", err)
-			}
-			if resp == nil {
-				t.Fatal("expected non-nil response")
-			}
-			
-			if tt.expectedResponse != nil {
-				if resp.GetIsValid() != tt.expectedResponse.GetIsValid() {
-					t.Errorf("expected isValid=%v, got %v", tt.expectedResponse.GetIsValid(), resp.GetIsValid())
+			resp, err := h.ValidateToken(context.Background(), req)
+
+			switch {
+			case tt.wantGRPCErr:
+				assertGRPCError(t, err, tt.wantCode, tt.expectedError)
+				if resp != nil {
+					t.Errorf("expected nil response on error, got %+v", resp)
 				}
-				if resp.GetAdminId() != tt.expectedResponse.GetAdminId() {
-					t.Errorf("expected admin_id=%d, got %d", tt.expectedResponse.GetAdminId(), resp.GetAdminId())
+
+			case tt.wantInternalErr:
+				if !errors.Is(err, ErrValidateTokenFailed) {
+					t.Errorf("expected ErrValidateTokenFailed, got %v", err)
 				}
-				if resp.GetAdminEmail() != tt.expectedResponse.GetAdminEmail() {
-					t.Errorf("expected admin_email=%q, got %q", tt.expectedResponse.GetAdminEmail(), resp.GetAdminEmail())
+				if resp != nil {
+					t.Errorf("expected nil response on internal error, got %+v", resp)
+				}
+
+			default:
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				if resp == nil {
+					t.Fatal("expected a non-nil response")
+				}
+				if resp.GetIsValid() != tt.wantIsValid {
+					t.Errorf("expected IsValid %v, got %v", tt.wantIsValid, resp.GetIsValid())
+				}
+				if resp.GetAdminId() != tt.wantAdminID {
+					t.Errorf("expected AdminId %d, got %d", tt.wantAdminID, resp.GetAdminId())
+				}
+				if resp.GetAdminEmail() != tt.wantAdminEmail {
+					t.Errorf("expected AdminEmail %q, got %q", tt.wantAdminEmail, resp.GetAdminEmail())
 				}
 			}
 		})

@@ -14,16 +14,16 @@ func TestValidateGenerateTokenReq(t *testing.T) {
 	longEmail := strings.Repeat("a", 250) + "@example.com"
 
 	tests := []struct {
-		name        string
-		req         *tokenpb.GenerateTokenRequest
-		expectError bool
-		wantCode    codes.Code
+		name          string
+		req           *tokenpb.GenerateTokenRequest
+		wantCode      codes.Code
+		expectedError string
 	}{
 		{
-			name:        "Nil request",
-			req:         nil,
-			expectError: true,
-			wantCode:    codes.InvalidArgument,
+			name:          "Nil request",
+			req:           nil,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "request cannot be nil",
 		},
 		{
 			name: "Invalid admin id",
@@ -31,8 +31,8 @@ func TestValidateGenerateTokenReq(t *testing.T) {
 				AdminID:    0,
 				AdminEmail: "admin@example.com",
 			},
-			expectError: true,
-			wantCode:    codes.InvalidArgument,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "admin_id is required and must be greater than 0",
 		},
 		{
 			name: "Empty admin email",
@@ -40,8 +40,8 @@ func TestValidateGenerateTokenReq(t *testing.T) {
 				AdminID:    1,
 				AdminEmail: " ",
 			},
-			expectError: true,
-			wantCode:    codes.InvalidArgument,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "admin_email is required",
 		},
 		{
 			name: "Invalid email format",
@@ -49,8 +49,8 @@ func TestValidateGenerateTokenReq(t *testing.T) {
 				AdminID:    1,
 				AdminEmail: "adminexample.com",
 			},
-			expectError: true,
-			wantCode:    codes.InvalidArgument,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "admin_email is invalid",
 		},
 		{
 			name: "Email exceeds maximum length",
@@ -58,8 +58,8 @@ func TestValidateGenerateTokenReq(t *testing.T) {
 				AdminID:    1,
 				AdminEmail: longEmail,
 			},
-			expectError: true,
-			wantCode:    codes.InvalidArgument,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "admin_email exceeds maximum length",
 		},
 		{
 			name: "Valid request",
@@ -67,7 +67,6 @@ func TestValidateGenerateTokenReq(t *testing.T) {
 				AdminID:    1,
 				AdminEmail: "admin@example.com",
 			},
-			expectError: false,
 		},
 		{
 			name: "Valid request with trimmed email",
@@ -75,7 +74,6 @@ func TestValidateGenerateTokenReq(t *testing.T) {
 				AdminID:    10,
 				AdminEmail: "  admin@example.com  ",
 			},
-			expectError: false,
 		},
 	}
 
@@ -83,22 +81,24 @@ func TestValidateGenerateTokenReq(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := utils.ValidateGenerateTokenReq(tt.req)
 
-			if tt.expectError {
+			if tt.expectedError != "" {
 				if err == nil {
-					t.Fatal("expected an error")
+					t.Fatalf("expected error %q, got nil", tt.expectedError)
 				}
 				st, ok := status.FromError(err)
 				if !ok {
 					t.Fatalf("expected gRPC status error, got %v", err)
 				}
 				if st.Code() != tt.wantCode {
-					t.Fatalf("expected %v, got %v", tt.wantCode, st.Code())
+					t.Fatalf("expected code %v, got %v", tt.wantCode, st.Code())
 				}
-				return
-			}
-
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
+				if st.Message() != tt.expectedError {
+					t.Errorf("expected error message %q, got %q", tt.expectedError, st.Message())
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
 			}
 		})
 	}
@@ -106,46 +106,44 @@ func TestValidateGenerateTokenReq(t *testing.T) {
 
 func TestValidateValidateTokenReq(t *testing.T) {
 	tests := []struct {
-		name        string
-		req         *tokenpb.ValidateTokenRequest
-		expectError bool
-		wantCode    codes.Code
+		name          string
+		req           *tokenpb.ValidateTokenRequest
+		wantCode      codes.Code
+		expectedError string
 	}{
 		{
-			name:        "Nil request",
-			req:         nil,
-			expectError: true,
-			wantCode:    codes.InvalidArgument,
+			name:          "Nil request",
+			req:           nil,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "request cannot be nil",
 		},
 		{
 			name: "Empty token",
 			req: &tokenpb.ValidateTokenRequest{
 				Token: " ",
 			},
-			expectError: true,
-			wantCode:    codes.InvalidArgument,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "token is required",
 		},
 		{
 			name: "Malformed token",
 			req: &tokenpb.ValidateTokenRequest{
 				Token: "header.payload",
 			},
-			expectError: true,
-			wantCode:    codes.InvalidArgument,
+			wantCode:      codes.InvalidArgument,
+			expectedError: "malformed token structure",
 		},
 		{
 			name: "Valid token structure",
 			req: &tokenpb.ValidateTokenRequest{
 				Token: "header.payload.signature",
 			},
-			expectError: false,
 		},
 		{
 			name: "Valid token with trimmed whitespace",
 			req: &tokenpb.ValidateTokenRequest{
 				Token: "  header.payload.signature  ",
 			},
-			expectError: false,
 		},
 	}
 
@@ -153,22 +151,24 @@ func TestValidateValidateTokenReq(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := utils.ValidateValidateTokenReq(tt.req)
 
-			if tt.expectError {
+			if tt.expectedError != "" {
 				if err == nil {
-					t.Fatal("expected an error")
+					t.Fatalf("expected error %q, got nil", tt.expectedError)
 				}
 				st, ok := status.FromError(err)
 				if !ok {
 					t.Fatalf("expected gRPC status error, got %v", err)
 				}
 				if st.Code() != tt.wantCode {
-					t.Fatalf("expected %v, got %v", tt.wantCode, st.Code())
+					t.Fatalf("expected code %v, got %v", tt.wantCode, st.Code())
 				}
-				return
-			}
-
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
+				if st.Message() != tt.expectedError {
+					t.Errorf("expected error message %q, got %q", tt.expectedError, st.Message())
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
 			}
 		})
 	}

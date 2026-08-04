@@ -1,13 +1,13 @@
 package handlers_test
 
 import (
-	"encoding/json"
+	"bytes"
 	"net/http"
-	"reflect"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
-	mockUtils "github.com/Jisnu-Dev/studenttracker/internals/mocks/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -34,83 +34,63 @@ func TestLoginAdminHandler(t *testing.T) {
 		generateTokenErr   mocks.MockOpError
 		mockAdmin          models.Admin
 		expectedStatusCode int
-		expectedResponse   map[string]interface{}
+		expectedBody       string
 	}{
 		{
 			name:               "success - valid credentials returns 200 with token",
 			body:               `{"email":"admin@example.com","password":"` + loginTestPassword + `"}`,
 			expectedStatusCode: http.StatusOK,
-			expectedResponse: map[string]interface{}{
-				"id":      float64(1), // Default mockAdmin ID
-				"token":   "mock.jwt.token",
-				"message": "Login successful",
-			},
+			expectedBody:       `{"id":1,"message":"Login successful","token":"mock.jwt.token"}`,
 		},
 		{
 			name:               "bad request - malformed JSON body returns 400",
 			body:               `{`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedResponse: map[string]interface{}{
-				"error": "invalid request payload",
-			},
+			expectedBody:       `{"error":"invalid request payload"}`,
 		},
 		{
 			name:               "bad request - empty email fails validation",
 			body:               `{"email":"","password":"Password123"}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedResponse: map[string]interface{}{
-				"error": "email: email is required",
-			},
+			expectedBody:       `{"error":"email: email is required"}`,
 		},
 		{
 			name:               "bad request - empty password fails validation",
 			body:               `{"email":"admin@example.com","password":""}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedResponse: map[string]interface{}{
-				"error": "password: password is required",
-			},
+			expectedBody:       `{"error":"password: password is required"}`,
 		},
 		{
 			name:               "unauthorized - admin not found returns 401 with invalid credentials message",
 			body:               `{"email":"unknown@example.com","password":"Password123"}`,
 			getAdminErr:        mocks.OpNotFound,
 			expectedStatusCode: http.StatusUnauthorized,
-			expectedResponse: map[string]interface{}{
-				"error": "invalid email or password",
-			},
+			expectedBody:       `{"error":"invalid email or password"}`,
 		},
 		{
 			name:               "internal server error - get admin service failure returns 500",
 			body:               `{"email":"admin@example.com","password":"Password123"}`,
 			getAdminErr:        mocks.OpInternalError,
 			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponse: map[string]interface{}{
-				"error": "unable to retrieve admin",
-			},
+			expectedBody:       `{"error":"unable to retrieve admin"}`,
 		},
 		{
 			name:               "unauthorized - wrong password returns 401 with invalid credentials message",
 			body:               `{"email":"admin@example.com","password":"WrongPassword1"}`,
 			expectedStatusCode: http.StatusUnauthorized,
-			expectedResponse: map[string]interface{}{
-				"error": "invalid email or password",
-			},
+			expectedBody:       `{"error":"invalid email or password"}`,
 		},
 		{
 			name:               "internal server error - token generation failure returns 500",
 			body:               `{"email":"admin@example.com","password":"` + loginTestPassword + `"}`,
 			generateTokenErr:   mocks.OpInternalError,
 			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponse: map[string]interface{}{
-				"error": "unable to login admin",
-			},
+			expectedBody:       `{"error":"unable to login admin"}`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, w := mockUtils.SetUpGinTest(http.MethodPost, "/login", tt.body)
-
 			// Seed the mock admin with a properly hashed password so CheckPasswordHash works.
 			adminToReturn := models.Admin{
 				ID:       1,
@@ -129,23 +109,26 @@ func TestLoginAdminHandler(t *testing.T) {
 			tc := &mocks.MockTokenClient{
 				GenerateTokenError: tt.generateTokenErr,
 			}
-			handler := newHandler(svc, tc)
-			handler.LoginAdminHandler(c)
+			
+			_, mux := setupMockHandler(svc, tc)
 
-			if w.Code != tt.expectedStatusCode {
-				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedStatusCode, w.Code, w.Body.String())
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/login",
+				bytes.NewBufferString(tt.body),
+			)
+			req.Header.Set("Content-Type", "application/json")
+			
+			rr := httptest.NewRecorder()
+
+			mux.ServeHTTP(rr, req)
+
+			if rr.Code != tt.expectedStatusCode {
+				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedStatusCode, rr.Code, rr.Body.String())
 			}
 
-			if tt.expectedResponse != nil {
-				var actualResponse map[string]interface{}
-				err := json.Unmarshal(w.Body.Bytes(), &actualResponse)
-				if err != nil {
-					t.Fatalf("failed to parse response body as JSON: %v, body was: %s", err, w.Body.String())
-				}
-
-				if !reflect.DeepEqual(tt.expectedResponse, actualResponse) {
-					t.Errorf("expected response %v, got %v", tt.expectedResponse, actualResponse)
-				}
+			if got := strings.TrimSpace(rr.Body.String()); got != tt.expectedBody {
+				t.Errorf("expected body %q, got %q", tt.expectedBody, got)
 			}
 		})
 	}

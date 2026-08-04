@@ -1,10 +1,9 @@
 package middlewares_test
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/middlewares"
@@ -22,7 +21,7 @@ func TestAuthMiddleware(t *testing.T) {
 		mockAdminEmail     string
 		mockErr            mocks.MockOpError
 		expectedStatusCode int
-		expectedResponse   map[string]interface{}
+		expectedBody       string
 		expectedContextID  int64
 		expectedContextEmail string
 	}{
@@ -32,9 +31,7 @@ func TestAuthMiddleware(t *testing.T) {
 			mockAdminID:        1,
 			mockAdminEmail:     "admin@example.com",
 			expectedStatusCode: http.StatusOK,
-			expectedResponse: map[string]interface{}{
-				"message": "success",
-			},
+			expectedBody:       `{"message":"success"}`,
 			expectedContextID:    1,
 			expectedContextEmail: "admin@example.com",
 		},
@@ -42,26 +39,20 @@ func TestAuthMiddleware(t *testing.T) {
 			name:               "unauthorized - missing header",
 			authHeader:         "",
 			expectedStatusCode: http.StatusUnauthorized,
-			expectedResponse: map[string]interface{}{
-				"error": "Authorization header is required",
-			},
+			expectedBody:       `{"error":"Authorization header is required"}`,
 		},
 		{
 			name:               "unauthorized - missing Bearer prefix",
 			authHeader:         "invalid.token.here",
 			expectedStatusCode: http.StatusUnauthorized,
-			expectedResponse: map[string]interface{}{
-				"error": "Authorization header format must be 'Bearer <token>'",
-			},
+			expectedBody:       `{"error":"Authorization header format must be 'Bearer \u003ctoken\u003e'"}`,
 		},
 		{
 			name:               "unauthorized - validate token returns false",
 			authHeader:         "Bearer invalid.token.here",
 			mockErr:            mocks.OpInvalidToken,
 			expectedStatusCode: http.StatusUnauthorized,
-			expectedResponse: map[string]interface{}{
-				"error": "Invalid or expired token",
-			},
+			expectedBody:       `{"error":"Invalid or expired token"}`,
 		},
 	}
 
@@ -103,16 +94,8 @@ func TestAuthMiddleware(t *testing.T) {
 				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedStatusCode, w.Code, w.Body.String())
 			}
 
-			if tt.expectedResponse != nil {
-				var actualResponse map[string]interface{}
-				err := json.Unmarshal(w.Body.Bytes(), &actualResponse)
-				if err != nil {
-					t.Fatalf("failed to parse response body as JSON: %v, body was: %s", err, w.Body.String())
-				}
-
-				if !reflect.DeepEqual(tt.expectedResponse, actualResponse) {
-					t.Errorf("expected response %v, got %v", tt.expectedResponse, actualResponse)
-				}
+			if got := strings.TrimSpace(w.Body.String()); got != tt.expectedBody {
+				t.Errorf("expected body %q, got %q", tt.expectedBody, got)
 			}
 		})
 	}
