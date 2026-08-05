@@ -11,8 +11,6 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-// mustSignToken signs claims with the HS256 method using the given secret,
-// failing the test immediately if signing fails.
 func mustSignToken(t *testing.T, secret []byte, claims Claims) string {
 	t.Helper()
 
@@ -24,13 +22,6 @@ func mustSignToken(t *testing.T, secret []byte, claims Claims) string {
 	return s
 }
 
-// mustSignNoneAlgToken signs claims with the "none" algorithm, used to
-// exercise the handler's non-HMAC signing-method rejection path.
-//
-// NOTE: relies on jwt.SigningMethodNone / jwt.UnsafeAllowNoneSignatureType
-// being available in your vendored golang-jwt/jwt/v5 version. If not, swap
-// this for an RS256-signed token instead — everything else in this file is
-// independent of how the mismatched-algorithm token is produced.
 func mustSignNoneAlgToken(t *testing.T, claims Claims) string {
 	t.Helper()
 
@@ -82,16 +73,13 @@ func TestValidateToken(t *testing.T) {
 	wrongSigToken := mustSignToken(t, []byte("a-different-secret"), validClaims)
 	algMismatchToken := mustSignNoneAlgToken(t, validClaims)
 
-	// Passes ValidateValidateTokenReq (exactly two dots, no whitespace) but
-	// the payload segment contains characters outside the base64url
-	// alphabet, so jwt.ParseWithClaims fails with jwt.ErrTokenMalformed.
 	const structurallyValidButGarbageToken = "abc.!!!.def"
 
 	tests := []struct {
 		name    string
 		handler *Handler
 		req     *tokenpb.ValidateTokenRequest
-		token string // used instead of req when req is nil, for readability
+		token   string // used instead of req when req is nil, for readability
 
 		wantGRPCErr   bool
 		wantCode      codes.Code

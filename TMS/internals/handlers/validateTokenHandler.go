@@ -34,8 +34,7 @@ func (h *Handler) ValidateToken(ctx context.Context, req *tokenpb.ValidateTokenR
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenMalformed) ||
 			errors.Is(err, jwt.ErrTokenSignatureInvalid) ||
-			errors.Is(err, jwt.ErrTokenExpired) ||
-			errors.Is(err, jwt.ErrTokenNotValidYet) {
+			errors.Is(err, jwt.ErrTokenExpired) {
 
 			slog.Warn("invalid token",
 				slog.String("function", "ValidateToken"),

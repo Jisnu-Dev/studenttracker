@@ -131,6 +131,14 @@ func (s *Service) DeleteStudent(id int64) error {
 	if rowsAffected == 0 {
 		return services.ErrStudentNotFound
 	}
+	if rowsAffected > 1 {
+		slog.Error("multiple rows affected",
+			slog.String("function", "DeleteStudent"),
+			slog.Int64("studentID", id),
+			slog.Int64("rowsAffected", rowsAffected),
+		)
+		return services.ErrDeleteStudentFailed
+	}
 
 	return nil
 }
@@ -161,6 +169,14 @@ func (s *Service) UpdateStudent(id int64, student models.Student) error {
 	}
 	if rowsAffected == 0 {
 		return services.ErrStudentNotFound
+	}
+	if rowsAffected > 1 {
+		slog.Error("multiple rows affected",
+			slog.String("function", "UpdateStudent"),
+			slog.Int64("studentID", id),
+			slog.Int64("rowsAffected", rowsAffected),
+		)
+		return services.ErrUpdateStudentFailed
 	}
 	return nil
 }
@@ -195,6 +211,14 @@ func (s *Service) PatchStudent(id int64, student models.PatchStudent) error {
 	}
 	if rowsAffected == 0 {
 		return services.ErrStudentNotFound
+	}
+	if rowsAffected > 1 {
+		slog.Error("multiple rows affected",
+			slog.String("function", "PatchStudent"),
+			slog.Int64("studentID", id),
+			slog.Int64("rowsAffected", rowsAffected),
+		)
+		return services.ErrPatchStudentFailed
 	}
 	return nil
 }

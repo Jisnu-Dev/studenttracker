@@ -15,23 +15,23 @@ func TestAuthMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		name               string
-		authHeader         string
-		mockAdminID        int64
-		mockAdminEmail     string
-		mockErr            mocks.MockOpError
-		expectedStatusCode int
-		expectedBody       string
-		expectedContextID  int64
+		name                 string
+		authHeader           string
+		mockAdminID          int64
+		mockAdminEmail       string
+		mockErr              mocks.MockOpError
+		expectedStatusCode   int
+		expectedBody         string
+		expectedContextID    int64
 		expectedContextEmail string
 	}{
 		{
-			name:               "success - valid token allows request",
-			authHeader:         "Bearer valid.token.here",
-			mockAdminID:        1,
-			mockAdminEmail:     "admin@example.com",
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `{"message":"success"}`,
+			name:                 "success - valid token allows request",
+			authHeader:           "Bearer valid.token.here",
+			mockAdminID:          1,
+			mockAdminEmail:       "admin@example.com",
+			expectedStatusCode:   http.StatusOK,
+			expectedBody:         `{"message":"success"}`,
 			expectedContextID:    1,
 			expectedContextEmail: "admin@example.com",
 		},
@@ -67,11 +67,10 @@ func TestAuthMiddleware(t *testing.T) {
 				Email:              tt.mockAdminEmail,
 			}
 
-			// Add a dummy route to test if middleware allows request to pass
 			r.GET("/protected", middlewares.AuthMiddleware(tc), func(ctx *gin.Context) {
 				adminID, _ := ctx.Get("adminID")
 				adminEmail, _ := ctx.Get("adminEmail")
-				
+
 				if adminID != tt.expectedContextID {
 					t.Errorf("expected context adminID %v, got %v", tt.expectedContextID, adminID)
 				}
