@@ -201,7 +201,7 @@ func (s *Service) PatchStudent(id int64, student models.PatchStudent) error {
 
 // Admin services
 func (s *Service) RegisterAdmin(admin models.Admin) (int64, error) {
-	query := `INSERT INTO admin (name, email, passwordHash) VALUES ($1, $2, $3) RETURNING id`
+	query := `INSERT INTO admin (name, email, "passwordHash") VALUES ($1, $2, $3) RETURNING "ID"`
 	var id int64
 
 	if err := s.db.QueryRow(query, admin.Name, admin.Email, admin.Password).Scan(&id); err != nil {
@@ -220,7 +220,7 @@ func (s *Service) RegisterAdmin(admin models.Admin) (int64, error) {
 }
 
 func (s *Service) GetAdminByEmail(email string) (models.Admin, error) {
-	query := `SELECT id, name, email, passwordHash FROM admin WHERE email = $1`
+	query := `SELECT "ID", name, email, "passwordHash" FROM admin WHERE email = $1`
 
 	var admin models.Admin
 	if err := s.db.QueryRow(query, email).Scan(&admin.ID, &admin.Name, &admin.Email, &admin.Password); err != nil {

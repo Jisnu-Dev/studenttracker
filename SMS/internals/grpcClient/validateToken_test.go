@@ -18,6 +18,7 @@ func TestValidateToken(t *testing.T) {
 		expectedAdminID int64
 		expectedEmail   string
 		expectedError   string
+		isClientError   bool
 	}{
 		{
 			name:            "success - valid token returns default claims",
@@ -36,7 +37,7 @@ func TestValidateToken(t *testing.T) {
 			expectedEmail:   "superadmin@school.org",
 		},
 		{
-			name:            "success - invalid token returns false with zero values",
+			name:            "success - validly formatted token rejected by server returns false with zero values",
 			token:           "invalid.jwt.token",
 			mockErr:         mocks.OpInvalidToken,
 			expectedIsValid: false,
@@ -44,7 +45,7 @@ func TestValidateToken(t *testing.T) {
 			expectedEmail:   "",
 		},
 		{
-			name:            "success - not found or revoked token returns false with zero values",
+			name:            "success - revoked token rejected by server returns false with zero values",
 			token:           "revoked.jwt.token",
 			mockErr:         mocks.OpNotFound,
 			expectedIsValid: false,
@@ -52,20 +53,40 @@ func TestValidateToken(t *testing.T) {
 			expectedEmail:   "",
 		},
 		{
-			name:            "success - empty token string returns false when marked invalid",
-			token:           "",
-			mockErr:         mocks.OpInvalidToken,
-			expectedIsValid: false,
-			expectedAdminID: 0,
-			expectedEmail:   "",
+			name:          "error - empty token string fails client validation and sends no request",
+			token:         "",
+			expectedError: "token is required",
+			isClientError: true,
 		},
 		{
-			name:            "success - malformed token string with special characters",
-			token:           "Bearer !@#$%^&*()_+-=[]{}|;':,.<>/?",
-			mockErr:         mocks.OpInvalidToken,
-			expectedIsValid: false,
-			expectedAdminID: 0,
-			expectedEmail:   "",
+			name:          "error - whitespace token string fails client validation and sends no request",
+			token:         "   ",
+			expectedError: "token is required",
+			isClientError: true,
+		},
+		{
+			name:          "error - internal whitespace token fails client validation and sends no request",
+			token:         "header.pay load.signature",
+			expectedError: "token cannot contain whitespace",
+			isClientError: true,
+		},
+		{
+			name:          "error - token without dots fails client validation and sends no request",
+			token:         "malformedtokenwithoutdots",
+			expectedError: "malformed token structure",
+			isClientError: true,
+		},
+		{
+			name:          "error - token with wrong segment count fails client validation and sends no request",
+			token:         "header.payload",
+			expectedError: "malformed token structure",
+			isClientError: true,
+		},
+		{
+			name:          "error - token with whitespace and wrong segment count aggregates errors",
+			token:         "foo bar",
+			expectedError: "token cannot contain whitespace; malformed token structure",
+			isClientError: true,
 		},
 		{
 			name:          "error - grpc call fails returns wrapped error",
@@ -85,6 +106,19 @@ func TestValidateToken(t *testing.T) {
 
 			tc := newTokenClientForTest(mock)
 			isValid, adminID, email, err := tc.ValidateToken(context.Background(), tt.token)
+
+			if tt.isClientError {
+				if err == nil {
+					t.Fatalf("expected error %q, got nil", tt.expectedError)
+				}
+				if err.Error() != tt.expectedError {
+					t.Errorf("expected error %q, got %q", tt.expectedError, err.Error())
+				}
+				if mock.CapturedToken != "" {
+					t.Errorf("expected no request sent on client error, got captured token %q", mock.CapturedToken)
+				}
+				return
+			}
 
 			if mock.CapturedToken != tt.token {
 				t.Errorf("expected captured token %q, got %q", tt.token, mock.CapturedToken)

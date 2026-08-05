@@ -16,11 +16,7 @@ func (h *Handler) DeleteStudentHandler(c *gin.Context) {
 	}
 
 	err := h.service.DeleteStudent(id)
-	if err != nil {
-		if errors.Is(err, services.ErrStudentNotFound) {
-			utils.RespondWithError(c, http.StatusNotFound, err.Error())
-			return
-		}
+	if err != nil && !errors.Is(err, services.ErrStudentNotFound) {
 		utils.RespondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}

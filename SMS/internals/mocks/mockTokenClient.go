@@ -30,6 +30,13 @@ func (m *MockTokenClient) GenerateToken(ctx context.Context, adminID int64, admi
 		return "", errors.New("failed to generate token")
 	}
 
+	if adminID <= 0 {
+		return "", errors.New("admin_id is required and must be greater than 0")
+	}
+	if adminEmail == "" {
+		return "", errors.New("admin_email is required")
+	}
+
 	if m.Token != "" {
 		return m.Token, nil
 	}

@@ -13,5 +13,9 @@ func (h *Handler) GetAllStudentsHandler(c *gin.Context) {
 		utils.RespondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if len(students) == 0 {
+		utils.RespondWithJSON(c, http.StatusOK, gin.H{})
+		return
+	}
 	utils.RespondWithJSON(c, http.StatusOK, students)
 }

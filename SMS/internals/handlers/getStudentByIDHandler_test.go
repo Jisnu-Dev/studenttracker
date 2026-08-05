@@ -30,11 +30,23 @@ func TestGetStudentByIDHandler(t *testing.T) {
 			expectedBody:       `{"error":"invalid id parameter"}`,
 		},
 		{
-			name:               "not found - student does not exist returns 404",
+			name:               "bad request - zero id param returns 400",
+			paramID:            "0",
+			expectedStatusCode: http.StatusBadRequest,
+			expectedBody:       `{"error":"invalid id parameter"}`,
+		},
+		{
+			name:               "bad request - negative id param returns 400",
+			paramID:            "-1",
+			expectedStatusCode: http.StatusBadRequest,
+			expectedBody:       `{"error":"invalid id parameter"}`,
+		},
+		{
+			name:               "success - valid id not present returns empty object with 200",
 			paramID:            "99",
 			mockErr:            mocks.OpNotFound,
-			expectedStatusCode: http.StatusNotFound,
-			expectedBody:       `{"error":"student not found"}`,
+			expectedStatusCode: http.StatusOK,
+			expectedBody:       `{}`,
 		},
 		{
 			name:               "internal server error - service failure returns 500",

@@ -134,10 +134,44 @@ func TestParseParamID(t *testing.T) {
 		}
 	})
 
-	t.Run("Invalid ID", func(t *testing.T) {
+	t.Run("Invalid ID - non numeric", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Params = gin.Params{{Key: "id", Value: "abc"}}
+
+		id, ok := utils.ParseParamID(c, "id")
+		if ok {
+			t.Error("expected ok to be false")
+		}
+		if id != 0 {
+			t.Errorf("expected id 0, got %d", id)
+		}
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	t.Run("Invalid ID - zero", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{{Key: "id", Value: "0"}}
+
+		id, ok := utils.ParseParamID(c, "id")
+		if ok {
+			t.Error("expected ok to be false")
+		}
+		if id != 0 {
+			t.Errorf("expected id 0, got %d", id)
+		}
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	t.Run("Invalid ID - negative", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{{Key: "id", Value: "-10"}}
 
 		id, ok := utils.ParseParamID(c, "id")
 		if ok {

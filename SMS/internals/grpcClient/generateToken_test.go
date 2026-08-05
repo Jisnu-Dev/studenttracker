@@ -16,6 +16,7 @@ func TestGenerateToken(t *testing.T) {
 		mockErr       mocks.MockOpError
 		expectedToken string
 		expectedError string
+		isClientError bool
 	}{
 		{
 			name:          "success - returns default token from grpc response",
@@ -31,28 +32,52 @@ func TestGenerateToken(t *testing.T) {
 			expectedToken: "custom.signed.jwt.token",
 		},
 		{
-			name:          "success - handles empty email boundary",
-			adminID:       10,
-			adminEmail:    "",
-			expectedToken: "mock.jwt.token",
-		},
-		{
-			name:          "success - handles zero admin ID boundary",
-			adminID:       0,
-			adminEmail:    "zero@example.com",
-			expectedToken: "mock.jwt.token",
-		},
-		{
-			name:          "success - handles negative admin ID boundary",
-			adminID:       -1,
-			adminEmail:    "neg@example.com",
-			expectedToken: "mock.jwt.token",
-		},
-		{
 			name:          "success - handles email with special characters and plus tag",
 			adminID:       5,
 			adminEmail:    "admin+tag_123@sub.domain.org",
 			expectedToken: "mock.jwt.token",
+		},
+		{
+			name:          "error - empty email fails client validation and sends no request",
+			adminID:       10,
+			adminEmail:    "",
+			expectedError: "admin_email: email is required",
+			isClientError: true,
+		},
+		{
+			name:          "error - whitespace email fails client validation and sends no request",
+			adminID:       10,
+			adminEmail:    "   ",
+			expectedError: "admin_email: email cannot be empty or only whitespace",
+			isClientError: true,
+		},
+		{
+			name:          "error - invalid email format fails client validation and sends no request",
+			adminID:       10,
+			adminEmail:    "not-an-email",
+			expectedError: "admin_email: email must contain '@'",
+			isClientError: true,
+		},
+		{
+			name:          "error - zero admin ID fails client validation and sends no request",
+			adminID:       0,
+			adminEmail:    "zero@example.com",
+			expectedError: "admin_id is required and must be greater than 0",
+			isClientError: true,
+		},
+		{
+			name:          "error - negative admin ID fails client validation and sends no request",
+			adminID:       -1,
+			adminEmail:    "neg@example.com",
+			expectedError: "admin_id is required and must be greater than 0",
+			isClientError: true,
+		},
+		{
+			name:          "error - both zero admin ID and empty email fail client validation and send no request",
+			adminID:       0,
+			adminEmail:    "",
+			expectedError: "admin_id is required and must be greater than 0; admin_email: email is required",
+			isClientError: true,
 		},
 		{
 			name:          "error - grpc call fails returns wrapped error",
@@ -72,6 +97,19 @@ func TestGenerateToken(t *testing.T) {
 
 			tc := newTokenClientForTest(mock)
 			token, err := tc.GenerateToken(context.Background(), tt.adminID, tt.adminEmail)
+
+			if tt.isClientError {
+				if err == nil {
+					t.Fatalf("expected error %q, got nil", tt.expectedError)
+				}
+				if err.Error() != tt.expectedError {
+					t.Errorf("expected error %q, got %q", tt.expectedError, err.Error())
+				}
+				if mock.CapturedAdminID != 0 || mock.CapturedAdminEmail != "" {
+					t.Errorf("expected no request sent on client error, got captured adminID %d, email %q", mock.CapturedAdminID, mock.CapturedAdminEmail)
+				}
+				return
+			}
 
 			if mock.CapturedAdminID != tt.adminID {
 				t.Errorf("expected captured adminID %d, got %d", tt.adminID, mock.CapturedAdminID)

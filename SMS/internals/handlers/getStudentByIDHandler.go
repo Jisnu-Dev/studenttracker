@@ -18,7 +18,7 @@ func (h *Handler) GetStudentByIDHandler(c *gin.Context) {
 	student, err := h.service.GetStudentByID(id)
 	if err != nil {
 		if errors.Is(err, services.ErrStudentNotFound) {
-			utils.RespondWithError(c, http.StatusNotFound, err.Error())
+			utils.RespondWithJSON(c, http.StatusOK, gin.H{})
 			return
 		}
 		utils.RespondWithError(c, http.StatusInternalServerError, err.Error())
