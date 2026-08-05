@@ -88,8 +88,9 @@ func TestValidateToken(t *testing.T) {
 	const structurallyValidButGarbageToken = "abc.!!!.def"
 
 	tests := []struct {
-		name  string
-		req   *tokenpb.ValidateTokenRequest
+		name    string
+		handler *Handler
+		req     *tokenpb.ValidateTokenRequest
 		token string // used instead of req when req is nil, for readability
 
 		wantGRPCErr   bool
@@ -178,6 +179,32 @@ func TestValidateToken(t *testing.T) {
 			wantInternalErr: true,
 		},
 		{
+			name: "returns invalid when parsed token is marked invalid with nil error",
+			handler: &Handler{
+				JWTSecret: secret,
+				TokenParser: func(tokenString string, claims jwt.Claims, keyFunc jwt.Keyfunc, _ ...jwt.ParserOption) (*jwt.Token, error) {
+					return &jwt.Token{Valid: false, Claims: &Claims{AdminID: 7, AdminEmail: "admin@example.com"}}, nil
+				},
+			},
+			token:          "valid.dummy.token",
+			wantIsValid:    false,
+			wantAdminID:    0,
+			wantAdminEmail: "",
+		},
+		{
+			name: "returns invalid when parsed token claims is not *Claims",
+			handler: &Handler{
+				JWTSecret: secret,
+				TokenParser: func(tokenString string, claims jwt.Claims, keyFunc jwt.Keyfunc, _ ...jwt.ParserOption) (*jwt.Token, error) {
+					return &jwt.Token{Valid: true, Claims: jwt.MapClaims{"adminID": 7}}, nil
+				},
+			},
+			token:          "valid.dummy.token",
+			wantIsValid:    false,
+			wantAdminID:    0,
+			wantAdminEmail: "",
+		},
+		{
 			name:           "succeeds for a valid token and returns its claims",
 			token:          validToken,
 			wantIsValid:    true,
@@ -193,7 +220,12 @@ func TestValidateToken(t *testing.T) {
 				req = &tokenpb.ValidateTokenRequest{Token: tt.token}
 			}
 
-			resp, err := h.ValidateToken(context.Background(), req)
+			targetHandler := h
+			if tt.handler != nil {
+				targetHandler = tt.handler
+			}
+
+			resp, err := targetHandler.ValidateToken(context.Background(), req)
 
 			switch {
 			case tt.wantGRPCErr:
@@ -228,5 +260,15 @@ func TestValidateToken(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestNewHandler(t *testing.T) {
+	h := NewHandler("my-secret-key")
+	if string(h.JWTSecret.([]byte)) != "my-secret-key" {
+		t.Errorf("expected secret %q, got %v", "my-secret-key", h.JWTSecret)
+	}
+	if h.TokenParser == nil {
+		t.Error("expected TokenParser to be initialized")
 	}
 }

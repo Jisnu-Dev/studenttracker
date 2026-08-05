@@ -90,6 +90,7 @@ func TestGenerateToken(t *testing.T) {
 
 	tests := []struct {
 		name          string
+		handler       *Handler
 		req           *tokenpb.GenerateTokenRequest
 		wantCode      codes.Code
 		expectedError string
@@ -192,11 +193,26 @@ func TestGenerateToken(t *testing.T) {
 			wantCode:      codes.InvalidArgument,
 			expectedError: "admin_id is required and must be greater than 0; admin_email is required",
 		},
+		{
+			name:    "fails when jwt token signing fails",
+			handler: &Handler{JWTSecret: "invalid-key-type"},
+			req: &tokenpb.GenerateTokenRequest{
+				AdminID:    42,
+				AdminEmail: "admin@example.com",
+			},
+			wantCode:      codes.Internal,
+			expectedError: "failed to sign jwt token",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := h.GenerateToken(context.Background(), tt.req)
+			targetHandler := h
+			if tt.handler != nil {
+				targetHandler = tt.handler
+			}
+
+			resp, err := targetHandler.GenerateToken(context.Background(), tt.req)
 
 			if tt.expectedError != "" {
 				assertGRPCError(t, err, tt.wantCode, tt.expectedError)

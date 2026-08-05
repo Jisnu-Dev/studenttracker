@@ -76,6 +76,12 @@ func TestRegisterAdminHandler(t *testing.T) {
 			expectedBody:       `{"error":"unable to register admin"}`,
 		},
 		{
+			name:               "internal server error - password hashing failure returns 500",
+			body:               `{"name":"John Admin","email":"john.admin@example.com","password":"Admin1` + strings.Repeat("✨", 30) + `"}`,
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedBody:       `{"error":"Failed to hash password"}`,
+		},
+		{
 			name:               "internal server error - token generation failure after admin created returns 500",
 			body:               `{"name":"John Admin","email":"john.admin@example.com","password":"Admin1234"}`,
 			generateTokenErr:   mocks.OpInternalError,

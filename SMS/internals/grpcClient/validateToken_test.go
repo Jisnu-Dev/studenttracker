@@ -29,7 +29,7 @@ func TestValidateToken(t *testing.T) {
 		},
 		{
 			name:            "success - valid token returns custom claims",
-			token:           "valid.custom.jwt.token",
+			token:           "custom.jwt.token",
 			mockAdminID:     42,
 			mockEmail:       "superadmin@school.org",
 			expectedIsValid: true,

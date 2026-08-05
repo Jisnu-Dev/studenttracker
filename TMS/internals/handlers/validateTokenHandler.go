@@ -15,7 +15,12 @@ func (h *Handler) ValidateToken(ctx context.Context, req *tokenpb.ValidateTokenR
 		return nil, err
 	}
 
-	token, err := jwt.ParseWithClaims(req.GetToken(), &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	parseWithClaims := h.TokenParser
+	if parseWithClaims == nil {
+		parseWithClaims = jwt.ParseWithClaims
+	}
+
+	token, err := parseWithClaims(req.GetToken(), &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			slog.Warn("unexpected signing method",
 				slog.String("function", "ValidateToken"),
