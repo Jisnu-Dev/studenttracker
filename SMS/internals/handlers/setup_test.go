@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const validStudentJSON = `{"name":"test name","email":"test@example.com","department":"CSE","semester":3,"age":20}`
+
 func setupMockHandler(svc *mocks.MockService, tc grpcClient.TokenClientInterface) (*handlers.Handler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

@@ -6,13 +6,12 @@ import (
 	"time"
 
 	tokenpb "github.com/Jisnu-Dev/TMS/gen/token"
-	"github.com/Jisnu-Dev/TMS/internals/handlers/utils"
 	"github.com/golang-jwt/jwt/v5"
 	"google.golang.org/grpc/codes"
 )
 
 func (h *Handler) GenerateToken(ctx context.Context, req *tokenpb.GenerateTokenRequest) (*tokenpb.GenerateTokenResponse, error) {
-	if err := utils.ValidateGenerateTokenReq(req); err != nil {
+	if err := ValidateGenerateTokenReq(req); err != nil {
 		return nil, err
 	}
 
@@ -34,8 +33,8 @@ func (h *Handler) GenerateToken(ctx context.Context, req *tokenpb.GenerateTokenR
 			slog.String("adminEmail", req.GetAdminEmail()),
 			slog.Any("error", err),
 		)
-		return nil, utils.GrpcError(codes.Internal, ErrGenerateTokenFailed.Error())
+		return nil, GrpcError(codes.Internal, ErrGenerateTokenFailed.Error())
 	}
 
-	return utils.GenerateTokenResponse(tokenString), nil
+	return GenerateTokenResponse(tokenString), nil
 }

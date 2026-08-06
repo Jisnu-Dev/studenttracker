@@ -4,50 +4,49 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
-	services "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
-	"github.com/Jisnu-Dev/studenttracker/internals/validation"
+	"github.com/Jisnu-Dev/studenttracker/internals/services"
 	"github.com/gin-gonic/gin"
 )
 
 func (h *Handler) RegisterAdminHandler(c *gin.Context) {
 	var admin models.Admin
 
-	if !utils.BindJSON(c, &admin) {
+	if !BindJSON(c, &admin) {
 		return
 	}
 
-	if err := validation.ValidateAdminRegister(&admin); err != nil {
-		utils.RespondWithError(c, http.StatusBadRequest, err.Error())
+	if err := models.Validate.Struct(admin); err != nil {
+		errMap := models.ValidationErrors(err)
+		c.JSON(http.StatusBadRequest, gin.H{"errors": errMap})
 		return
 	}
 
-	hashedPassword, err := utils.HashPassword(admin.Password)
+	hashedPassword, err := HashPassword(admin.Password)
 	if err != nil {
-		utils.RespondWithError(c, http.StatusInternalServerError, "Failed to hash password")
+		RespondWithError(c, http.StatusInternalServerError, "Failed to hash password")
 		return
 	}
 
 	admin.Password = hashedPassword
 
-	id, err := h.service.RegisterAdmin(admin)
+	id, err := h.service.RegisterAdmin(c.Request.Context(), admin)
 	if err != nil {
 		if errors.Is(err, services.ErrAdminEmailExists) {
-			utils.RespondWithError(c, http.StatusConflict, err.Error())
+			RespondWithError(c, http.StatusConflict, err.Error())
 			return
 		}
-		utils.RespondWithError(c, http.StatusInternalServerError, err.Error())
+		RespondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	token, err := h.TokenClient.GenerateToken(c.Request.Context(), id, admin.Email)
 	if err != nil {
-		utils.RespondWithError(c, http.StatusInternalServerError, "admin created, but unable to generate token")
+		RespondWithError(c, http.StatusInternalServerError, "admin created, but unable to generate token")
 		return
 	}
 
-	utils.RespondWithJSON(c, http.StatusOK, gin.H{
+	RespondWithJSON(c, http.StatusOK, gin.H{
 		"id":      id,
 		"token":   token,
 		"message": "Admin created successfully",

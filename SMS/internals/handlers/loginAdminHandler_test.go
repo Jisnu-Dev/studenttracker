@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Jisnu-Dev/studenttracker/internals/grpcClient"
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
 	"golang.org/x/crypto/bcrypt"
@@ -31,7 +32,7 @@ func TestLoginAdminHandler(t *testing.T) {
 		name               string
 		body               string
 		getAdminErr        mocks.MockOpError
-		generateTokenErr   mocks.MockOpError
+		generateTokenErr   mocks.GrpcOpError
 		mockAdmin          models.Admin
 		expectedStatusCode int
 		expectedBody       string
@@ -52,13 +53,13 @@ func TestLoginAdminHandler(t *testing.T) {
 			name:               "bad request - empty email fails validation",
 			body:               `{"email":"","password":"Password123"}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"email: email is required"}`,
+			expectedBody:       `{"errors":{"email":"email is required"}}`,
 		},
 		{
 			name:               "bad request - empty password fails validation",
 			body:               `{"email":"admin@example.com","password":""}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"password: password is required"}`,
+			expectedBody:       `{"errors":{"password":"password is required"}}`,
 		},
 		{
 			name:               "unauthorized - admin not found returns 401 with invalid credentials message",
@@ -83,7 +84,7 @@ func TestLoginAdminHandler(t *testing.T) {
 		{
 			name:               "internal server error - token generation failure returns 500",
 			body:               `{"email":"admin@example.com","password":"` + loginTestPassword + `"}`,
-			generateTokenErr:   mocks.OpInternalError,
+			generateTokenErr:   mocks.GrpcOpInternalError,
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedBody:       `{"error":"unable to login admin"}`,
 		},
@@ -106,9 +107,9 @@ func TestLoginAdminHandler(t *testing.T) {
 				GetAdminByEmailError: tt.getAdminErr,
 				Admin:                adminToReturn,
 			}
-			tc := &mocks.MockTokenClient{
-				GenerateTokenError: tt.generateTokenErr,
-			}
+			tc := grpcClient.NewTokenClientForTest(&mocks.MockTokenServiceClient{
+				GenerateErr: tt.generateTokenErr,
+			})
 			
 			_, mux := setupMockHandler(svc, tc)
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Jisnu-Dev/studenttracker/internals/grpcClient"
 	"github.com/Jisnu-Dev/studenttracker/internals/middlewares"
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
 	"github.com/gin-gonic/gin"
@@ -19,7 +20,7 @@ func TestAuthMiddleware(t *testing.T) {
 		authHeader           string
 		mockAdminID          int64
 		mockAdminEmail       string
-		mockErr              mocks.MockOpError
+		mockErr              mocks.GrpcOpError
 		expectedStatusCode   int
 		expectedBody         string
 		expectedContextID    int64
@@ -50,7 +51,7 @@ func TestAuthMiddleware(t *testing.T) {
 		{
 			name:               "unauthorized - validate token returns false",
 			authHeader:         "Bearer invalid.token.here",
-			mockErr:            mocks.OpInvalidToken,
+			mockErr:            mocks.GrpcOpInvalidToken,
 			expectedStatusCode: http.StatusUnauthorized,
 			expectedBody:       `{"error":"Invalid or expired token"}`,
 		},
@@ -61,11 +62,11 @@ func TestAuthMiddleware(t *testing.T) {
 			w := httptest.NewRecorder()
 			c, r := gin.CreateTestContext(w)
 
-			tc := &mocks.MockTokenClient{
-				ValidateTokenError: tt.mockErr,
+			tc := grpcClient.NewTokenClientForTest(&mocks.MockTokenServiceClient{
+				ValidateErr: tt.mockErr,
 				AdminID:            tt.mockAdminID,
-				Email:              tt.mockAdminEmail,
-			}
+				AdminEmail:         tt.mockAdminEmail,
+			})
 
 			r.GET("/protected", middlewares.AuthMiddleware(tc), func(ctx *gin.Context) {
 				adminID, _ := ctx.Get("adminID")

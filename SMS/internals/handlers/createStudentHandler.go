@@ -4,36 +4,35 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
-	services "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
-	"github.com/Jisnu-Dev/studenttracker/internals/validation"
+	"github.com/Jisnu-Dev/studenttracker/internals/services"
 	"github.com/gin-gonic/gin"
 )
 
 func (h *Handler) CreateStudentHandler(c *gin.Context) {
 	var student models.Student
 
-	if !utils.BindJSON(c, &student) {
+	if !BindJSON(c, &student) {
 		return
 	}
 
-	if err := validation.ValidateStudent(&student); err != nil {
-		utils.RespondWithError(c, http.StatusBadRequest, err.Error())
+	if err := models.Validate.Struct(student); err != nil {
+		errMap := models.ValidationErrors(err)
+		c.JSON(http.StatusBadRequest, gin.H{"errors": errMap})
 		return
 	}
 
-	id, err := h.service.CreateStudent(student)
+	id, err := h.service.CreateStudent(c.Request.Context(), student)
 	if err != nil {
 		if errors.Is(err, services.ErrStudentEmailExists) {
-			utils.RespondWithError(c, http.StatusConflict, err.Error())
+			RespondWithError(c, http.StatusConflict, err.Error())
 			return
 		}
-		utils.RespondWithError(c, http.StatusInternalServerError, err.Error())
+		RespondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	utils.RespondWithJSON(c, http.StatusOK, gin.H{
+	RespondWithJSON(c, http.StatusOK, gin.H{
 		"id":      id,
 		"message": "student created successfully",
 	})

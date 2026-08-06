@@ -2,16 +2,18 @@ package mocks
 
 import (
 	"context"
-	"errors"
 
 	tokenpb "github.com/Jisnu-Dev/studenttracker/gen/token"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
+// MockTokenServiceClient is a mock implementation of the TMS gRPC token client.
 type MockTokenServiceClient struct {
 	// 1. Error simulation triggers
-	GenerateTokenError MockOpError
-	ValidateTokenError MockOpError
+	GenerateErr GrpcOpError
+	ValidateErr GrpcOpError
 
 	// 2. Mock return data configuration
 	Token      string
@@ -24,13 +26,14 @@ type MockTokenServiceClient struct {
 	CapturedToken      string
 }
 
+// GenerateToken mocks a token generation request to the TMS service.
 func (m *MockTokenServiceClient) GenerateToken(ctx context.Context, req *tokenpb.GenerateTokenRequest, _ ...grpc.CallOption) (*tokenpb.GenerateTokenResponse, error) {
 	m.CapturedAdminID = req.GetAdminID()
 	m.CapturedAdminEmail = req.GetAdminEmail()
 
-	switch m.GenerateTokenError {
-	case OpInternalError:
-		return nil, errors.New("rpc error: failed to generate token")
+	switch m.GenerateErr {
+	case GrpcOpInternalError:
+		return nil, status.Error(codes.Internal, "failed to generate token")
 	}
 
 	if m.Token != "" {
@@ -39,16 +42,15 @@ func (m *MockTokenServiceClient) GenerateToken(ctx context.Context, req *tokenpb
 	return &tokenpb.GenerateTokenResponse{Token: "mock.jwt.token"}, nil
 }
 
+// ValidateToken mocks a token validation request to the TMS service.
 func (m *MockTokenServiceClient) ValidateToken(ctx context.Context, req *tokenpb.ValidateTokenRequest, _ ...grpc.CallOption) (*tokenpb.ValidateTokenResponse, error) {
 	m.CapturedToken = req.GetToken()
 
-	switch m.ValidateTokenError {
-	case OpInternalError:
-		return nil, errors.New("rpc error: token validation service unavailable")
-	case OpInvalidToken, OpNotFound:
-		return &tokenpb.ValidateTokenResponse{
-			IsValid: false,
-		}, nil
+	switch m.ValidateErr {
+	case GrpcOpInternalError:
+		return nil, status.Error(codes.Internal, "token validation service unavailable")
+	case GrpcOpInvalidToken:
+		return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
 	}
 
 	adminID := int64(1)

@@ -2,6 +2,7 @@ package grpcClient
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
@@ -13,10 +14,10 @@ func TestGenerateToken(t *testing.T) {
 		adminID       int64
 		adminEmail    string
 		mockToken     string
-		mockErr       mocks.MockOpError
+		mockErr       mocks.GrpcOpError
 		expectedToken string
 		expectedError string
-		isClientError bool
+		sentinelError error
 	}{
 		{
 			name:          "success - returns default token from grpc response",
@@ -38,78 +39,25 @@ func TestGenerateToken(t *testing.T) {
 			expectedToken: "mock.jwt.token",
 		},
 		{
-			name:          "error - empty email fails client validation and sends no request",
-			adminID:       10,
-			adminEmail:    "",
-			expectedError: "admin_email: email is required",
-			isClientError: true,
-		},
-		{
-			name:          "error - whitespace email fails client validation and sends no request",
-			adminID:       10,
-			adminEmail:    "   ",
-			expectedError: "admin_email: email cannot be empty or only whitespace",
-			isClientError: true,
-		},
-		{
-			name:          "error - invalid email format fails client validation and sends no request",
-			adminID:       10,
-			adminEmail:    "not-an-email",
-			expectedError: "admin_email: email must contain '@'",
-			isClientError: true,
-		},
-		{
-			name:          "error - zero admin ID fails client validation and sends no request",
-			adminID:       0,
-			adminEmail:    "zero@example.com",
-			expectedError: "admin_id is required and must be greater than 0",
-			isClientError: true,
-		},
-		{
-			name:          "error - negative admin ID fails client validation and sends no request",
-			adminID:       -1,
-			adminEmail:    "neg@example.com",
-			expectedError: "admin_id is required and must be greater than 0",
-			isClientError: true,
-		},
-		{
-			name:          "error - both zero admin ID and empty email fail client validation and send no request",
-			adminID:       0,
-			adminEmail:    "",
-			expectedError: "admin_id is required and must be greater than 0; admin_email: email is required",
-			isClientError: true,
-		},
-		{
-			name:          "error - grpc call fails returns wrapped error",
+			name:          "error - grpc call fails returns sentinel error",
 			adminID:       1,
 			adminEmail:    "admin@example.com",
-			mockErr:       mocks.OpInternalError,
-			expectedError: "failed to generate token: rpc error: failed to generate token",
+			mockErr:       mocks.GrpcOpInternalError,
+			sentinelError: ErrGenerateTokenFailed,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := &mocks.MockTokenServiceClient{
-				Token:              tt.mockToken,
-				GenerateTokenError: tt.mockErr,
+				Token:       tt.mockToken,
+				GenerateErr: tt.mockErr,
 			}
 
-			tc := newTokenClientForTest(mock)
+			tc := NewTokenClientForTest(mock)
 			token, err := tc.GenerateToken(context.Background(), tt.adminID, tt.adminEmail)
 
-			if tt.isClientError {
-				if err == nil {
-					t.Fatalf("expected error %q, got nil", tt.expectedError)
-				}
-				if err.Error() != tt.expectedError {
-					t.Errorf("expected error %q, got %q", tt.expectedError, err.Error())
-				}
-				if mock.CapturedAdminID != 0 || mock.CapturedAdminEmail != "" {
-					t.Errorf("expected no request sent on client error, got captured adminID %d, email %q", mock.CapturedAdminID, mock.CapturedAdminEmail)
-				}
-				return
-			}
+
 
 			if mock.CapturedAdminID != tt.adminID {
 				t.Errorf("expected captured adminID %d, got %d", tt.adminID, mock.CapturedAdminID)
@@ -118,12 +66,12 @@ func TestGenerateToken(t *testing.T) {
 				t.Errorf("expected captured adminEmail %q, got %q", tt.adminEmail, mock.CapturedAdminEmail)
 			}
 
-			if tt.expectedError != "" {
+			if tt.sentinelError != nil {
 				if err == nil {
-					t.Fatalf("expected error %q, got nil", tt.expectedError)
+					t.Fatalf("expected error %q, got nil", tt.sentinelError)
 				}
-				if err.Error() != tt.expectedError {
-					t.Errorf("expected error %q, got %q", tt.expectedError, err.Error())
+				if !errors.Is(err, tt.sentinelError) {
+					t.Errorf("expected error %q, got %q", tt.sentinelError, err)
 				}
 				return
 			}

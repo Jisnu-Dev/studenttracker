@@ -2,6 +2,7 @@ package grpcClient
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
@@ -13,12 +14,12 @@ func TestValidateToken(t *testing.T) {
 		token           string
 		mockAdminID     int64
 		mockEmail       string
-		mockErr         mocks.MockOpError
+		mockErr         mocks.GrpcOpError
 		expectedIsValid bool
 		expectedAdminID int64
 		expectedEmail   string
 		expectedError   string
-		isClientError   bool
+		sentinelError   error
 	}{
 		{
 			name:            "success - valid token returns default claims",
@@ -37,99 +38,42 @@ func TestValidateToken(t *testing.T) {
 			expectedEmail:   "superadmin@school.org",
 		},
 		{
-			name:            "success - validly formatted token rejected by server returns false with zero values",
-			token:           "invalid.jwt.token",
-			mockErr:         mocks.OpInvalidToken,
-			expectedIsValid: false,
-			expectedAdminID: 0,
-			expectedEmail:   "",
+			name:          "error - invalid token rejected by server returns sentinel error",
+			token:         "invalid.jwt.token",
+			mockErr:       mocks.GrpcOpInvalidToken,
+			sentinelError: ErrValidateTokenFailed,
 		},
 		{
-			name:            "success - revoked token rejected by server returns false with zero values",
-			token:           "revoked.jwt.token",
-			mockErr:         mocks.OpNotFound,
-			expectedIsValid: false,
-			expectedAdminID: 0,
-			expectedEmail:   "",
-		},
-		{
-			name:          "error - empty token string fails client validation and sends no request",
-			token:         "",
-			expectedError: "token is required",
-			isClientError: true,
-		},
-		{
-			name:          "error - whitespace token string fails client validation and sends no request",
-			token:         "   ",
-			expectedError: "token is required",
-			isClientError: true,
-		},
-		{
-			name:          "error - internal whitespace token fails client validation and sends no request",
-			token:         "header.pay load.signature",
-			expectedError: "token cannot contain whitespace",
-			isClientError: true,
-		},
-		{
-			name:          "error - token without dots fails client validation and sends no request",
-			token:         "malformedtokenwithoutdots",
-			expectedError: "malformed token structure",
-			isClientError: true,
-		},
-		{
-			name:          "error - token with wrong segment count fails client validation and sends no request",
-			token:         "header.payload",
-			expectedError: "malformed token structure",
-			isClientError: true,
-		},
-		{
-			name:          "error - token with whitespace and wrong segment count aggregates errors",
-			token:         "foo bar",
-			expectedError: "token cannot contain whitespace; malformed token structure",
-			isClientError: true,
-		},
-		{
-			name:          "error - grpc call fails returns wrapped error",
+			name:          "error - grpc internal failure returns sentinel error",
 			token:         "some.jwt.token",
-			mockErr:       mocks.OpInternalError,
-			expectedError: "failed to validate token: rpc error: token validation service unavailable",
+			mockErr:       mocks.GrpcOpInternalError,
+			sentinelError: ErrValidateTokenFailed,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := &mocks.MockTokenServiceClient{
-				AdminID:            tt.mockAdminID,
-				AdminEmail:         tt.mockEmail,
-				ValidateTokenError: tt.mockErr,
+				AdminID:     tt.mockAdminID,
+				AdminEmail:  tt.mockEmail,
+				ValidateErr: tt.mockErr,
 			}
 
-			tc := newTokenClientForTest(mock)
+			tc := NewTokenClientForTest(mock)
 			isValid, adminID, email, err := tc.ValidateToken(context.Background(), tt.token)
 
-			if tt.isClientError {
-				if err == nil {
-					t.Fatalf("expected error %q, got nil", tt.expectedError)
-				}
-				if err.Error() != tt.expectedError {
-					t.Errorf("expected error %q, got %q", tt.expectedError, err.Error())
-				}
-				if mock.CapturedToken != "" {
-					t.Errorf("expected no request sent on client error, got captured token %q", mock.CapturedToken)
-				}
-				return
-			}
+
 
 			if mock.CapturedToken != tt.token {
 				t.Errorf("expected captured token %q, got %q", tt.token, mock.CapturedToken)
 			}
 
-			if tt.expectedError != "" {
+			if tt.sentinelError != nil {
 				if err == nil {
-					t.Fatalf("expected error %q, got nil", tt.expectedError)
+					t.Fatalf("expected error %q, got nil", tt.sentinelError)
 				}
-				if err.Error() != tt.expectedError {
-					t.Errorf("expected error %q, got %q", tt.expectedError, err.Error())
+				if !errors.Is(err, tt.sentinelError) {
+					t.Errorf("expected error %q, got %q", tt.sentinelError, err)
 				}
 				return
 			}

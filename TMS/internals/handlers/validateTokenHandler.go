@@ -6,12 +6,11 @@ import (
 	"log/slog"
 
 	tokenpb "github.com/Jisnu-Dev/TMS/gen/token"
-	"github.com/Jisnu-Dev/TMS/internals/handlers/utils"
 	"github.com/golang-jwt/jwt/v5"
 )
 
 func (h *Handler) ValidateToken(ctx context.Context, req *tokenpb.ValidateTokenRequest) (*tokenpb.ValidateTokenResponse, error) {
-	if err := utils.ValidateValidateTokenReq(req); err != nil {
+	if err := ValidateValidateTokenReq(req); err != nil {
 		return nil, err
 	}
 
@@ -34,13 +33,15 @@ func (h *Handler) ValidateToken(ctx context.Context, req *tokenpb.ValidateTokenR
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenMalformed) ||
 			errors.Is(err, jwt.ErrTokenSignatureInvalid) ||
-			errors.Is(err, jwt.ErrTokenExpired) {
+			errors.Is(err, jwt.ErrTokenExpired) ||
+			errors.Is(err, jwt.ErrTokenNotValidYet) ||
+			errors.Is(err, jwt.ErrTokenInvalidClaims) {
 
 			slog.Warn("invalid token",
 				slog.String("function", "ValidateToken"),
 				slog.Any("error", err),
 			)
-			return utils.ValidateTokenResponse(false, 0, ""), nil
+			return ValidateTokenResponse(false, 0, ""), nil
 		}
 
 		slog.Error("internal server error during token parsing",
@@ -51,8 +52,8 @@ func (h *Handler) ValidateToken(ctx context.Context, req *tokenpb.ValidateTokenR
 	}
 
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
-		return utils.ValidateTokenResponse(true, claims.AdminID, claims.AdminEmail), nil
+		return ValidateTokenResponse(true, claims.AdminID, claims.AdminEmail), nil
 	}
 
-	return utils.ValidateTokenResponse(false, 0, ""), nil
+	return ValidateTokenResponse(false, 0, ""), nil
 }

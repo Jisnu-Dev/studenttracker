@@ -2,31 +2,14 @@ package grpcClient
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"strings"
+	"log/slog"
 	"time"
 
 	tokenpb "github.com/Jisnu-Dev/studenttracker/gen/token"
+	"google.golang.org/grpc/status"
 )
 
 func (c *TokenClient) ValidateToken(ctx context.Context, token string) (bool, int64, string, error) {
-	var errs []string
-	trimmed := strings.TrimSpace(token)
-	if trimmed == "" {
-		errs = append(errs, "token is required")
-	} else {
-		if strings.ContainsAny(trimmed, " \t\n\r") {
-			errs = append(errs, "token cannot contain whitespace")
-		}
-		if strings.Count(trimmed, ".") != 2 {
-			errs = append(errs, "malformed token structure")
-		}
-	}
-	if len(errs) > 0 {
-		return false, 0, "", errors.New(strings.Join(errs, "; "))
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -34,7 +17,13 @@ func (c *TokenClient) ValidateToken(ctx context.Context, token string) (bool, in
 		Token: token,
 	})
 	if err != nil {
-		return false, 0, "", fmt.Errorf("failed to validate token: %w", err)
+		st, _ := status.FromError(err)
+		slog.Error("gRPC call failed",
+			slog.String("function", "ValidateToken"),
+			slog.String("grpcCode", st.Code().String()),
+			slog.String("grpcMessage", st.Message()),
+		)
+		return false, 0, "", ErrValidateTokenFailed
 	}
 
 	return resp.GetIsValid(), resp.GetAdminID(), resp.GetAdminEmail(), nil

@@ -2,27 +2,14 @@ package grpcClient
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"strings"
+	"log/slog"
 	"time"
 
 	tokenpb "github.com/Jisnu-Dev/studenttracker/gen/token"
-	"github.com/Jisnu-Dev/studenttracker/internals/validation"
+	"google.golang.org/grpc/status"
 )
 
 func (c *TokenClient) GenerateToken(ctx context.Context, adminID int64, adminEmail string) (string, error) {
-	var errs []string
-	if adminID <= 0 {
-		errs = append(errs, "admin_id is required and must be greater than 0")
-	}
-	if err := validation.ValidateEmail(adminEmail); err != nil {
-		errs = append(errs, "admin_email: "+err.Error())
-	}
-	if len(errs) > 0 {
-		return "", errors.New(strings.Join(errs, "; "))
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -31,7 +18,14 @@ func (c *TokenClient) GenerateToken(ctx context.Context, adminID int64, adminEma
 		AdminEmail: adminEmail,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to generate token: %w", err)
+		st, _ := status.FromError(err)
+		slog.Error("gRPC call failed",
+			slog.String("function", "GenerateToken"),
+			slog.String("adminEmail", adminEmail),
+			slog.String("grpcCode", st.Code().String()),
+			slog.String("grpcMessage", st.Message()),
+		)
+		return "", ErrGenerateTokenFailed
 	}
 
 	return resp.GetToken(), nil

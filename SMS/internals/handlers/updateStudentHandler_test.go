@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
-	mockUtils "github.com/Jisnu-Dev/studenttracker/internals/mocks/utils"
 )
 
 func TestUpdateStudentHandler(t *testing.T) {
@@ -23,14 +22,14 @@ func TestUpdateStudentHandler(t *testing.T) {
 		{
 			name:               "success - valid id and body updates student and returns 200",
 			paramID:            "1",
-			body:               mockUtils.ValidStudentJSON,
+			body:               validStudentJSON,
 			expectedStatusCode: http.StatusOK,
 			expectedBody:       `{"message":"Student updated successfully"}`,
 		},
 		{
 			name:               "bad request - non-numeric id param returns 400",
 			paramID:            "abc",
-			body:               mockUtils.ValidStudentJSON,
+			body:               validStudentJSON,
 			expectedStatusCode: http.StatusBadRequest,
 			expectedBody:       `{"error":"invalid id parameter"}`,
 		},
@@ -46,55 +45,55 @@ func TestUpdateStudentHandler(t *testing.T) {
 			paramID:            "1",
 			body:               `{"email":"test@example.com","department":"CSE","semester":3,"age":20}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"name: name is required"}`,
+			expectedBody:       `{"errors":{"name":"name is required"}}`,
 		},
 		{
 			name:               "bad request - missing email fails validation",
 			paramID:            "1",
 			body:               `{"name":"test name","department":"CSE","semester":3,"age":20}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"email: email is required"}`,
+			expectedBody:       `{"errors":{"email":"email is required"}}`,
 		},
 		{
 			name:               "bad request - missing department fails validation",
 			paramID:            "1",
 			body:               `{"name":"test name","email":"test@example.com","semester":3,"age":20}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"department: invalid department ''; allowed values: CSE, IT, ECE, EEE, MECH, CIVIL, AIDS, AIML"}`,
+			expectedBody:       `{"errors":{"department":"department is required"}}`,
 		},
 		{
 			name:               "bad request - missing semester fails validation",
 			paramID:            "1",
 			body:               `{"name":"test name","email":"test@example.com","department":"CSE","age":20}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"semester: semester must be between 1 and 8"}`,
+			expectedBody:       `{"errors":{"semester":"semester must be between 1 and 8"}}`,
 		},
 		{
 			name:               "bad request - missing age fails validation",
 			paramID:            "1",
 			body:               `{"name":"test name","email":"test@example.com","department":"CSE","semester":3}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"age: age must be between 18 and 60"}`,
+			expectedBody:       `{"errors":{"age":"age must be between 18 and 60"}}`,
 		},
 		{
 			name:               "bad request - invalid department fails validation",
 			paramID:            "1",
 			body:               `{"name":"test name","email":"test@example.com","department":"INVALID","semester":3,"age":20}`,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"department: invalid department 'INVALID'; allowed values: CSE, IT, ECE, EEE, MECH, CIVIL, AIDS, AIML"}`,
+			expectedBody:       `{"errors":{"department":"invalid department"}}`,
 		},
 		{
-			name:               "not found - student does not exist returns 404",
+			name:               "success (not found) - student does not exist but idempotent update returns 200",
 			paramID:            "99",
-			body:               mockUtils.ValidStudentJSON,
+			body:               validStudentJSON,
 			mockErr:            mocks.OpNotFound,
-			expectedStatusCode: http.StatusNotFound,
-			expectedBody:       `{"error":"student not found"}`,
+			expectedStatusCode: http.StatusOK,
+			expectedBody:       `{"message":"Student updated successfully"}`,
 		},
 		{
 			name:               "conflict - duplicate email returns 409",
 			paramID:            "1",
-			body:               mockUtils.ValidStudentJSON,
+			body:               validStudentJSON,
 			mockErr:            mocks.OpEmailExists,
 			expectedStatusCode: http.StatusConflict,
 			expectedBody:       `{"error":"student with this email already exists"}`,
@@ -102,7 +101,7 @@ func TestUpdateStudentHandler(t *testing.T) {
 		{
 			name:               "internal server error - service failure returns 500",
 			paramID:            "1",
-			body:               mockUtils.ValidStudentJSON,
+			body:               validStudentJSON,
 			mockErr:            mocks.OpInternalError,
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedBody:       `{"error":"unable to update student"}`,

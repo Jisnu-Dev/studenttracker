@@ -31,8 +31,8 @@ func NewTokenClient(TMSAddress string) (*TokenClient, error) {
 	}, nil
 }
 
-// newTokenClientForTest creates a TokenClient with an injected gRPC client,
+// NewTokenClientForTest creates a TokenClient with an injected gRPC client,
 // used only in tests to avoid needing a real network connection.
-func newTokenClientForTest(c tokenpb.TokenServiceClient) *TokenClient {
+func NewTokenClientForTest(c tokenpb.TokenServiceClient) *TokenClient {
 	return &TokenClient{client: c}
 }

@@ -4,47 +4,46 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
-	services "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
-	"github.com/Jisnu-Dev/studenttracker/internals/validation"
+	"github.com/Jisnu-Dev/studenttracker/internals/services"
 	"github.com/gin-gonic/gin"
 )
 
 func (h *Handler) LoginAdminHandler(c *gin.Context) {
 	var req models.LoginRequest
 
-	if !utils.BindJSON(c, &req) {
+	if !BindJSON(c, &req) {
 		return
 	}
 
-	if err := validation.ValidateAdminLogin(&req); err != nil {
-		utils.RespondWithError(c, http.StatusBadRequest, err.Error())
+	if err := models.Validate.Struct(req); err != nil {
+		errMap := models.ValidationErrors(err)
+		c.JSON(http.StatusBadRequest, gin.H{"errors": errMap})
 		return
 	}
 
-	admin, err := h.service.GetAdminByEmail(req.Email)
+	admin, err := h.service.GetAdminByEmail(c.Request.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, services.ErrAdminNotFound) {
-			utils.RespondWithError(c, http.StatusUnauthorized, services.ErrInvalidCredentials.Error())
+			RespondWithError(c, http.StatusUnauthorized, services.ErrInvalidCredentials.Error())
 			return
 		}
-		utils.RespondWithError(c, http.StatusInternalServerError, err.Error())
+		RespondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	if !utils.CheckPasswordHash(req.Password, admin.Password) {
-		utils.RespondWithError(c, http.StatusUnauthorized, services.ErrInvalidCredentials.Error())
+	if !CheckPasswordHash(req.Password, admin.Password) {
+		RespondWithError(c, http.StatusUnauthorized, services.ErrInvalidCredentials.Error())
 		return
 	}
 
 	token, err := h.TokenClient.GenerateToken(c.Request.Context(), admin.ID, admin.Email)
 	if err != nil {
-		utils.RespondWithError(c, http.StatusInternalServerError, "unable to login admin")
+		RespondWithError(c, http.StatusInternalServerError, "unable to login admin")
 		return
 	}
 
-	utils.RespondWithJSON(c, http.StatusOK, gin.H{
+	RespondWithJSON(c, http.StatusOK, gin.H{
 		"id":      admin.ID,
 		"token":   token,
 		"message": "Login successful",

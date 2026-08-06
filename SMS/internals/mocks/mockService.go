@@ -1,8 +1,10 @@
 package mocks
 
 import (
+	"context"
+
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
-	services "github.com/Jisnu-Dev/studenttracker/internals/services/errors"
+	"github.com/Jisnu-Dev/studenttracker/internals/services"
 )
 
 type MockService struct {
@@ -32,9 +34,7 @@ type MockService struct {
 	CapturedAdmin        models.Admin
 }
 
-func (m *MockService) CreateStudent(student models.Student) (int, error) {
-	m.CapturedStudent = student
-
+func (m *MockService) CreateStudent(ctx context.Context, student models.Student) (int, error) {
 	switch m.CreateStudentError {
 	case OpEmailExists:
 		return 0, services.ErrStudentEmailExists
@@ -48,7 +48,7 @@ func (m *MockService) CreateStudent(student models.Student) (int, error) {
 	return 1, nil
 }
 
-func (m *MockService) GetAllStudents() ([]models.Student, error) {
+func (m *MockService) GetAllStudents(ctx context.Context) ([]models.Student, error) {
 	switch m.GetAllStudentsError {
 	case OpInternalError:
 		return nil, services.ErrGetAllStudentsFailed
@@ -67,9 +67,7 @@ func (m *MockService) GetAllStudents() ([]models.Student, error) {
 	}, nil
 }
 
-func (m *MockService) GetStudentByID(id int64) (models.Student, error) {
-	m.CapturedID = id
-
+func (m *MockService) GetStudentByID(ctx context.Context, id int64) (models.Student, error) {
 	switch m.GetStudentByIDError {
 	case OpNotFound:
 		return models.Student{}, services.ErrStudentNotFound
@@ -83,9 +81,7 @@ func (m *MockService) GetStudentByID(id int64) (models.Student, error) {
 	return models.Student{ID: id, Name: "test", Email: "test@example.com"}, nil
 }
 
-func (m *MockService) DeleteStudent(id int64) error {
-	m.CapturedID = id
-
+func (m *MockService) DeleteStudent(ctx context.Context, id int64) error {
 	switch m.DeleteStudentError {
 	case OpNotFound:
 		return services.ErrStudentNotFound
@@ -96,10 +92,7 @@ func (m *MockService) DeleteStudent(id int64) error {
 	return nil
 }
 
-func (m *MockService) UpdateStudent(id int64, student models.Student) error {
-	m.CapturedID = id
-	m.CapturedStudent = student
-
+func (m *MockService) UpdateStudent(ctx context.Context, id int64, student models.Student) error {
 	switch m.UpdateStudentError {
 	case OpNotFound:
 		return services.ErrStudentNotFound
@@ -112,10 +105,7 @@ func (m *MockService) UpdateStudent(id int64, student models.Student) error {
 	return nil
 }
 
-func (m *MockService) PatchStudent(id int64, student models.PatchStudent) error {
-	m.CapturedID = id
-	m.CapturedPatchStudent = student
-
+func (m *MockService) PatchStudent(ctx context.Context, id int64, student models.PatchStudent) error {
 	switch m.PatchStudentError {
 	case OpNotFound:
 		return services.ErrStudentNotFound
@@ -130,9 +120,7 @@ func (m *MockService) PatchStudent(id int64, student models.PatchStudent) error 
 	return nil
 }
 
-func (m *MockService) RegisterAdmin(admin models.Admin) (int64, error) {
-	m.CapturedAdmin = admin
-
+func (m *MockService) RegisterAdmin(ctx context.Context, admin models.Admin) (int64, error) {
 	switch m.RegisterAdminError {
 	case OpEmailExists:
 		return 0, services.ErrAdminEmailExists
@@ -146,9 +134,7 @@ func (m *MockService) RegisterAdmin(admin models.Admin) (int64, error) {
 	return 1, nil
 }
 
-func (m *MockService) GetAdminByEmail(email string) (models.Admin, error) {
-	m.CapturedEmail = email
-
+func (m *MockService) GetAdminByEmail(ctx context.Context, email string) (models.Admin, error) {
 	switch m.GetAdminByEmailError {
 	case OpNotFound:
 		return models.Admin{}, services.ErrAdminNotFound

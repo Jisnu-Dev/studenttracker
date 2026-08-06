@@ -1,4 +1,4 @@
-package utils
+package handlers
 
 import (
 	"net/mail"
@@ -6,9 +6,29 @@ import (
 
 	tokenpb "github.com/Jisnu-Dev/TMS/gen/token"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const maxEmailLength = 254
+
+// GrpcError creates and returns a gRPC status error from a status code and error message.
+func GrpcError(code codes.Code, message string) error {
+	return status.Error(code, message)
+}
+
+func GenerateTokenResponse(token string) *tokenpb.GenerateTokenResponse {
+	return &tokenpb.GenerateTokenResponse{
+		Token: token,
+	}
+}
+
+func ValidateTokenResponse(isValid bool, adminID int64, adminEmail string) *tokenpb.ValidateTokenResponse {
+	return &tokenpb.ValidateTokenResponse{
+		IsValid:    isValid,
+		AdminId:    adminID,
+		AdminEmail: adminEmail,
+	}
+}
 
 func ValidateGenerateTokenReq(req *tokenpb.GenerateTokenRequest) error {
 	if req == nil {

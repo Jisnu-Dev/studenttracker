@@ -1,4 +1,4 @@
-package utils_test
+package handlers_test
 
 import (
 	"bytes"
@@ -7,13 +7,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Jisnu-Dev/studenttracker/internals/handlers/utils"
+	"github.com/Jisnu-Dev/studenttracker/internals/handlers"
 	"github.com/gin-gonic/gin"
 )
 
 func TestHashPasswordAndCheckPasswordHash(t *testing.T) {
 	password := "my_secure_password"
-	hash, err := utils.HashPassword(password)
+	hash, err := handlers.HashPassword(password)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -21,11 +21,11 @@ func TestHashPasswordAndCheckPasswordHash(t *testing.T) {
 		t.Fatal("expected hash to not be empty")
 	}
 
-	if !utils.CheckPasswordHash(password, hash) {
+	if !handlers.CheckPasswordHash(password, hash) {
 		t.Error("expected CheckPasswordHash to return true for correct password")
 	}
 
-	if utils.CheckPasswordHash("wrong_password", hash) {
+	if handlers.CheckPasswordHash("wrong_password", hash) {
 		t.Error("expected CheckPasswordHash to return false for incorrect password")
 	}
 }
@@ -35,7 +35,7 @@ func TestRespondWithError(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 
-	utils.RespondWithError(c, http.StatusBadRequest, "an error occurred")
+	handlers.RespondWithError(c, http.StatusBadRequest, "an error occurred")
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
@@ -57,7 +57,7 @@ func TestRespondWithJSON(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 
 	payload := gin.H{"message": "success", "id": 123}
-	utils.RespondWithJSON(c, http.StatusOK, payload)
+	handlers.RespondWithJSON(c, http.StatusOK, payload)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
@@ -71,7 +71,6 @@ func TestRespondWithJSON(t *testing.T) {
 	if response["message"] != "success" {
 		t.Errorf("expected message 'success', got '%v'", response["message"])
 	}
-	// json unmarshals numbers to float64
 	if response["id"] != float64(123) {
 		t.Errorf("expected id 123, got '%v'", response["id"])
 	}
@@ -90,7 +89,7 @@ func TestBindJSON(t *testing.T) {
 			Name string `json:"name"`
 		}
 
-		if !utils.BindJSON(c, &target) {
+		if !handlers.BindJSON(c, &target) {
 			t.Error("expected BindJSON to return true")
 		}
 		if target.Name != "test name" {
@@ -108,7 +107,7 @@ func TestBindJSON(t *testing.T) {
 			Name string `json:"name"`
 		}
 
-		if utils.BindJSON(c, &target) {
+		if handlers.BindJSON(c, &target) {
 			t.Error("expected BindJSON to return false")
 		}
 		if w.Code != http.StatusBadRequest {
@@ -125,7 +124,7 @@ func TestParseParamID(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Params = gin.Params{{Key: "id", Value: "42"}}
 
-		id, ok := utils.ParseParamID(c, "id")
+		id, ok := handlers.ParseParamID(c, "id")
 		if !ok {
 			t.Error("expected ok to be true")
 		}
@@ -139,7 +138,7 @@ func TestParseParamID(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Params = gin.Params{{Key: "id", Value: "abc"}}
 
-		id, ok := utils.ParseParamID(c, "id")
+		id, ok := handlers.ParseParamID(c, "id")
 		if ok {
 			t.Error("expected ok to be false")
 		}
@@ -156,7 +155,7 @@ func TestParseParamID(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Params = gin.Params{{Key: "id", Value: "0"}}
 
-		id, ok := utils.ParseParamID(c, "id")
+		id, ok := handlers.ParseParamID(c, "id")
 		if ok {
 			t.Error("expected ok to be false")
 		}
@@ -173,7 +172,7 @@ func TestParseParamID(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Params = gin.Params{{Key: "id", Value: "-10"}}
 
-		id, ok := utils.ParseParamID(c, "id")
+		id, ok := handlers.ParseParamID(c, "id")
 		if ok {
 			t.Error("expected ok to be false")
 		}
