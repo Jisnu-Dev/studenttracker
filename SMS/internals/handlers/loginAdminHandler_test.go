@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -35,16 +34,16 @@ func TestLoginAdminHandler(t *testing.T) {
 		body          string
 		mockErr       mocks.MockOpError
 		generateErr   mocks.GrpcOpError
-		mockToken     string
 		mockAdmin     models.Admin
 		expectedCode  int
+		expectedBody  string
 		expectedError any
 	}{
 		{
 			name:         "admin login successful",
 			body:         `{"email":"admin@example.com","password":"Password123"}`,
-			mockToken:    mocks.MockToken,
 			expectedCode: http.StatusOK,
+			expectedBody: `{"id":1,"message":"Login successful","token":"signed.jwt.token"}`,
 		},
 		{
 			name:          "admin login fails due to invalid json",
@@ -129,8 +128,7 @@ func TestLoginAdminHandler(t *testing.T) {
 				Admin:                adminToReturn,
 			}
 			tc := grpcClient.NewTokenClientForTest(&mocks.MockTokenServiceClient{
-				Token:       tt.mockToken,
-				GenerateErr: tt.generateErr,
+				GenerateTokenError: tt.generateErr,
 			})
 
 			_, mux := setupMockHandler(svc, tc)
@@ -149,13 +147,13 @@ func TestLoginAdminHandler(t *testing.T) {
 				t.Errorf("expected %d, got %d", tt.expectedCode, rr.Code)
 			}
 
-			if tt.expectedCode == http.StatusOK {
-				resp := make(map[string]any)
-				if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
-					t.Fatalf("failed to decode response body: %v", err)
+			if tt.expectedBody != "" {
+				got := rr.Body.String()
+				if got[len(got)-1] == '\n' {
+					got = got[:len(got)-1]
 				}
-				if resp["token"] == "" || resp["token"] == nil {
-					t.Errorf("expected token in response, got empty")
+				if got != tt.expectedBody {
+					t.Errorf("expected body %q, got %q", tt.expectedBody, got)
 				}
 			}
 

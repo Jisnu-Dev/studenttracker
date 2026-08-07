@@ -1,7 +1,6 @@
 package handlers_test
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,12 +16,14 @@ func TestDeleteStudentHandler(t *testing.T) {
 		paramID       string
 		mockErr       mocks.MockOpError
 		expectedCode  int
+		expectedBody  string
 		expectedError any
 	}{
 		{
 			name:         "delete student successful",
 			paramID:      "1",
 			expectedCode: http.StatusOK,
+			expectedBody: `{"id":1,"message":"Student deleted successfully"}`,
 		},
 		{
 			name:          "delete student fails due to non-numeric id",
@@ -53,6 +54,7 @@ func TestDeleteStudentHandler(t *testing.T) {
 			paramID:      "99",
 			mockErr:      mocks.OpNotFound,
 			expectedCode: http.StatusOK,
+			expectedBody: `{"id":99,"message":"Student deleted successfully"}`,
 		},
 		{
 			name:          "delete student fails due to internal server error",
@@ -81,16 +83,13 @@ func TestDeleteStudentHandler(t *testing.T) {
 				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedCode, rr.Code, rr.Body.String())
 			}
 
-			if tt.expectedCode == http.StatusOK {
-				var resp struct {
-					ID      int64  `json:"id"`
-					Message string `json:"message"`
+			if tt.expectedBody != "" {
+				got := rr.Body.String()
+				if len(got) > 0 && got[len(got)-1] == '\n' {
+					got = got[:len(got)-1]
 				}
-				if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
-					t.Fatalf("failed to decode response body: %v", err)
-				}
-				if resp.Message != "Student deleted successfully" {
-					t.Errorf("expected message 'Student deleted successfully', got %q", resp.Message)
+				if got != tt.expectedBody {
+					t.Errorf("expected body %q, got %q", tt.expectedBody, got)
 				}
 			}
 

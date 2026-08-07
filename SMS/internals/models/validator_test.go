@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -8,8 +9,8 @@ import (
 func TestValidateStudent(t *testing.T) {
 	validStudent := func() Student {
 		return Student{
-			Name:       "John Doe",
-			Email:      "john.doe@example.com",
+			Name:       "test name",
+			Email:      "test@example.com",
 			Department: CSE,
 			Semester:   4,
 			Age:        20,
@@ -38,7 +39,7 @@ func TestValidateStudent(t *testing.T) {
 
 	t.Run("name with invalid characters returns invalid name error", func(t *testing.T) {
 		s := validStudent()
-		s.Name = "John123"
+		s.Name = "Test123"
 		err := Validate.Struct(s)
 		if err == nil {
 			t.Fatal("expected error, got nil")
@@ -75,6 +76,32 @@ func TestValidateStudent(t *testing.T) {
 		}
 	})
 
+	t.Run("name with leading or trailing spaces returns invalid name error", func(t *testing.T) {
+		s := validStudent()
+		s.Name = " Test Name "
+		err := Validate.Struct(s)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		errs := ValidationErrors(err)
+		if errs["name"] != ErrInvalidName.Error() {
+			t.Errorf("expected %q, got %q", ErrInvalidName.Error(), errs["name"])
+		}
+	})
+
+	t.Run("name with consecutive spaces returns invalid name error", func(t *testing.T) {
+		s := validStudent()
+		s.Name = "Test  Name"
+		err := Validate.Struct(s)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		errs := ValidationErrors(err)
+		if errs["name"] != ErrInvalidName.Error() {
+			t.Errorf("expected %q, got %q", ErrInvalidName.Error(), errs["name"])
+		}
+	})
+
 	t.Run("missing email returns required error", func(t *testing.T) {
 		s := validStudent()
 		s.Email = ""
@@ -85,6 +112,19 @@ func TestValidateStudent(t *testing.T) {
 		errs := ValidationErrors(err)
 		if errs["email"] != ErrEmailRequired.Error() {
 			t.Errorf("expected %q, got %q", ErrEmailRequired.Error(), errs["email"])
+		}
+	})
+
+	t.Run("email too long returns max error", func(t *testing.T) {
+		s := validStudent()
+		s.Email = strings.Repeat("a", 250) + "@example.com"
+		err := Validate.Struct(s)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		errs := ValidationErrors(err)
+		if errs["email"] != ErrEmailTooLong.Error() {
+			t.Errorf("expected %q, got %q", ErrEmailTooLong.Error(), errs["email"])
 		}
 	})
 
@@ -111,6 +151,19 @@ func TestValidateStudent(t *testing.T) {
 		errs := ValidationErrors(err)
 		if errs["department"] != ErrInvalidDepartment.Error() {
 			t.Errorf("expected %q, got %q", ErrInvalidDepartment.Error(), errs["department"])
+		}
+	})
+
+	t.Run("missing department returns required error", func(t *testing.T) {
+		s := validStudent()
+		s.Department = ""
+		err := Validate.Struct(s)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		errs := ValidationErrors(err)
+		if errs["department"] != ErrDepartmentRequired.Error() {
+			t.Errorf("expected %q, got %q", ErrDepartmentRequired.Error(), errs["department"])
 		}
 	})
 
@@ -170,6 +223,19 @@ func TestValidateAdmin(t *testing.T) {
 		}
 	})
 
+	t.Run("password too long returns max error", func(t *testing.T) {
+		a := validAdmin()
+		a.Password = "Aa1!" + strings.Repeat("a", 65)
+		err := Validate.Struct(a)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		errs := ValidationErrors(err)
+		if errs["password"] != ErrPasswordTooLong.Error() {
+			t.Errorf("expected %q, got %q", ErrPasswordTooLong.Error(), errs["password"])
+		}
+	})
+
 	t.Run("password without special char returns invalid password error", func(t *testing.T) {
 		a := validAdmin()
 		a.Password = "Password123"
@@ -222,4 +288,48 @@ func TestValidateLoginRequest(t *testing.T) {
 			t.Errorf("expected %q, got %q", ErrPasswordRequired.Error(), errs["password"])
 		}
 	})
+}
+
+func TestValidationErrors_NonValidatorError(t *testing.T) {
+	err := errors.New("some random error")
+	errs := ValidationErrors(err)
+	if errs["error"] != "some random error" {
+		t.Errorf("expected 'some random error', got %q", errs["error"])
+	}
+}
+
+func TestIgnoredJSONField(t *testing.T) {
+	type TestStruct struct {
+		IgnoredField string `json:"-" validate:"required"`
+	}
+
+	s := TestStruct{}
+	err := Validate.Struct(s)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	errs := ValidationErrors(err)
+	expectedErrStr := "IgnoredField failed validation on 'required'"
+	if errs["IgnoredField"] != expectedErrStr {
+		t.Errorf("expected %q, got %q", expectedErrStr, errs["IgnoredField"])
+	}
+}
+
+func TestDefaultFieldError(t *testing.T) {
+	type TestStruct struct {
+		UnknownField string `json:"unknown_field" validate:"required"`
+	}
+
+	s := TestStruct{}
+	err := Validate.Struct(s)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	errs := ValidationErrors(err)
+	expectedErrStr := "unknown_field failed validation on 'required'"
+	if errs["unknown_field"] != expectedErrStr {
+		t.Errorf("expected %q, got %q", expectedErrStr, errs["unknown_field"])
+	}
 }

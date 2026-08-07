@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,6 +19,7 @@ func TestUpdateStudentHandler(t *testing.T) {
 		body          string
 		mockErr       mocks.MockOpError
 		expectedCode  int
+		expectedBody  string
 		expectedError any
 	}{
 		{
@@ -27,6 +27,7 @@ func TestUpdateStudentHandler(t *testing.T) {
 			paramID:      "1",
 			body:         `{"name":"test name","email":"test@example.com","department":"CSE","semester":3,"age":20}`,
 			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
 		},
 		{
 			name:          "update student fails due to non-numeric id",
@@ -102,6 +103,7 @@ func TestUpdateStudentHandler(t *testing.T) {
 			body:         `{"name":"test name","email":"test@example.com","department":"CSE","semester":3,"age":20}`,
 			mockErr:      mocks.OpNotFound,
 			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
 		},
 		{
 			name:          "update student fails because email already exists",
@@ -110,6 +112,37 @@ func TestUpdateStudentHandler(t *testing.T) {
 			mockErr:       mocks.OpEmailExists,
 			expectedCode:  http.StatusConflict,
 			expectedError: services.ErrStudentEmailExists.Error(),
+		},
+		{
+			name:         "update student succeeds with boundary-valid semester and age",
+			paramID:      "1",
+			body:         `{"name":"test name","email":"test@example.com","department":"CSE","semester":8,"age":60}`,
+			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
+		},
+		{
+			name:         "update student succeeds with minimum boundary semester and age",
+			paramID:      "1",
+			body:         `{"name":"test name","email":"test@example.com","department":"CSE","semester":1,"age":18}`,
+			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
+		},
+		{
+			name:         "update student fails with multiple missing fields at once",
+			paramID:      "1",
+			body:         `{"department":"CSE","semester":3,"age":20}`,
+			expectedCode: http.StatusBadRequest,
+			expectedError: map[string]string{
+				"name":  models.ErrNameRequired.Error(),
+				"email": models.ErrEmailRequired.Error(),
+			},
+		},
+		{
+			name:          "update student fails due to empty body",
+			paramID:       "1",
+			body:          ``,
+			expectedCode:  http.StatusBadRequest,
+			expectedError: handlers.ErrInvalidPayload.Error(),
 		},
 		{
 			name:          "update student fails due to internal server error",
@@ -140,15 +173,13 @@ func TestUpdateStudentHandler(t *testing.T) {
 				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedCode, rr.Code, rr.Body.String())
 			}
 
-			if tt.expectedCode == http.StatusOK {
-				var resp struct {
-					Message string `json:"message"`
+			if tt.expectedBody != "" {
+				got := rr.Body.String()
+				if len(got) > 0 && got[len(got)-1] == '\n' {
+					got = got[:len(got)-1]
 				}
-				if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
-					t.Fatalf("failed to decode response body: %v", err)
-				}
-				if resp.Message != "Student updated successfully" {
-					t.Errorf("expected message 'Student updated successfully', got %q", resp.Message)
+				if got != tt.expectedBody {
+					t.Errorf("expected body %q, got %q", tt.expectedBody, got)
 				}
 			}
 

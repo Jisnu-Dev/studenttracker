@@ -6,10 +6,11 @@ import (
 	"net"
 	"os"
 
-	tokenpb "github.com/Jisnu-Dev/TMS/gen/token"
-	"github.com/Jisnu-Dev/TMS/internals/handlers"
-	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
+
+	tokenpb "github.com/Jisnu-Dev/TMS/gen/token"
+	"github.com/Jisnu-Dev/TMS/internals/grpcHandler"
+	"github.com/joho/godotenv"
 )
 
 type AppConfig struct {
@@ -20,7 +21,7 @@ type AppConfig struct {
 func run() error {
 	config := loadConfig()
 
-	handler := handlers.NewHandler(config.JWTSecret)
+	handler := grpcHandler.NewHandler(config.JWTSecret)
 
 	grpcServer := grpc.NewServer()
 

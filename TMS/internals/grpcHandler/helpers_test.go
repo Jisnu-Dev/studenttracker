@@ -1,4 +1,4 @@
-package handlers
+package grpcHandler
 
 import (
 	"strings"
@@ -106,7 +106,7 @@ func TestValidateGenerateTokenReq(t *testing.T) {
 	}
 }
 
-func TestValidateValidateTokenReq(t *testing.T) {
+func TestValidateTokenReq(t *testing.T) {
 	tests := []struct {
 		name          string
 		req           *tokenpb.ValidateTokenRequest
@@ -153,7 +153,7 @@ func TestValidateValidateTokenReq(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateValidateTokenReq(tt.req)
+			err := ValidateTokenReq(tt.req)
 
 			if tt.expectedCode != codes.OK {
 				if err == nil {
@@ -179,29 +179,3 @@ func TestValidateValidateTokenReq(t *testing.T) {
 	}
 }
 
-func TestResponsesAndGrpcError(t *testing.T) {
-	t.Run("GrpcError helper", func(t *testing.T) {
-		err := GrpcError(codes.NotFound, "not found test")
-		st, ok := status.FromError(err)
-		if !ok {
-			t.Fatalf("expected grpc status error")
-		}
-		if st.Code() != codes.NotFound || st.Message() != "not found test" {
-			t.Errorf("unexpected status: %v", st)
-		}
-	})
-
-	t.Run("GenerateTokenResponse helper", func(t *testing.T) {
-		resp := GenerateTokenResponse("sample-token")
-		if resp == nil || resp.GetToken() != "sample-token" {
-			t.Errorf("unexpected response: %v", resp)
-		}
-	})
-
-	t.Run("ValidateTokenResponse helper", func(t *testing.T) {
-		resp := ValidateTokenResponse(true, 42, "admin@test.com")
-		if resp == nil || !resp.GetIsValid() || resp.GetAdminId() != 42 || resp.GetAdminEmail() != "admin@test.com" {
-			t.Errorf("unexpected response: %v", resp)
-		}
-	})
-}

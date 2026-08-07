@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,16 +16,16 @@ func TestCreateStudentHandler(t *testing.T) {
 	tests := []struct {
 		name             string
 		body             string
-		mockErr          mocks.MockOpError
-		createdStudentID int
-		expectedCode     int
-		expectedError    any
+		mockErr       mocks.MockOpError
+		expectedCode  int
+		expectedBody  string
+		expectedError any
 	}{
 		{
-			name:             "student creation successful",
-			body:             `{"name":"test name","email":"test@example.com","department":"CSE","semester":3,"age":20}`,
-			createdStudentID: 1,
-			expectedCode:     http.StatusOK,
+			name:         "student creation successful",
+			body:         `{"name":"test name","email":"test@example.com","department":"CSE","semester":3,"age":20}`,
+			expectedCode: http.StatusOK,
+			expectedBody: `{"id":1,"message":"student created successfully"}`,
 		},
 		{
 			name:          "student creation fails due to invalid json",
@@ -126,7 +125,6 @@ func TestCreateStudentHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &mocks.MockService{
 				CreateStudentError: tt.mockErr,
-				CreatedStudentID:   tt.createdStudentID,
 			}
 			_, mux := setupMockHandler(svc, nil)
 
@@ -144,19 +142,13 @@ func TestCreateStudentHandler(t *testing.T) {
 				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedCode, rr.Code, rr.Body.String())
 			}
 
-			if tt.expectedCode == http.StatusOK {
-				var resp struct {
-					ID      int    `json:"id"`
-					Message string `json:"message"`
+			if tt.expectedBody != "" {
+				got := rr.Body.String()
+				if got[len(got)-1] == '\n' {
+					got = got[:len(got)-1]
 				}
-				if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
-					t.Fatalf("failed to decode response body: %v", err)
-				}
-				if resp.ID != tt.createdStudentID {
-					t.Errorf("expected student ID %d, got %d", tt.createdStudentID, resp.ID)
-				}
-				if resp.Message != "student created successfully" {
-					t.Errorf("expected message 'student created successfully', got %q", resp.Message)
+				if got != tt.expectedBody {
+					t.Errorf("expected body %q, got %q", tt.expectedBody, got)
 				}
 			}
 

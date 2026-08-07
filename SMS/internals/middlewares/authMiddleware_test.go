@@ -21,6 +21,7 @@ func TestAuthMiddleware(t *testing.T) {
 		mockAdminID          int64
 		mockAdminEmail       string
 		mockErr              mocks.GrpcOpError
+		returnInvalid        bool
 		expectedCode         int
 		expectedError        string
 		expectedContextID    int64
@@ -48,9 +49,16 @@ func TestAuthMiddleware(t *testing.T) {
 			expectedError: middlewares.ErrAuthHeaderFormat.Error(),
 		},
 		{
-			name:          "unauthorized - validate token returns false",
+			name:          "unauthorized - validate token returns gRPC error",
 			authHeader:    "Bearer invalid.token.here",
 			mockErr:       mocks.GrpcOpInvalidToken,
+			expectedCode:  http.StatusUnauthorized,
+			expectedError: middlewares.ErrInvalidToken.Error(),
+		},
+		{
+			name:          "unauthorized - validate token reports token invalid",
+			authHeader:    "Bearer expired.token.here",
+			returnInvalid: true,
 			expectedCode:  http.StatusUnauthorized,
 			expectedError: middlewares.ErrInvalidToken.Error(),
 		},
@@ -62,9 +70,10 @@ func TestAuthMiddleware(t *testing.T) {
 			c, r := gin.CreateTestContext(w)
 
 			tc := grpcClient.NewTokenClientForTest(&mocks.MockTokenServiceClient{
-				ValidateErr: tt.mockErr,
-				AdminID:     tt.mockAdminID,
-				AdminEmail:  tt.mockAdminEmail,
+				ValidateTokenError: tt.mockErr,
+				ReturnInvalidToken: tt.returnInvalid,
+				AdminID:            tt.mockAdminID,
+				AdminEmail:         tt.mockAdminEmail,
 			})
 
 			r.GET("/protected", middlewares.AuthMiddleware(tc), func(ctx *gin.Context) {

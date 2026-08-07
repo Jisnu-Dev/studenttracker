@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestGenerateToken(t *testing.T) {
@@ -14,61 +12,46 @@ func TestGenerateToken(t *testing.T) {
 		name          string
 		adminID       int64
 		adminEmail    string
-		mockToken     string
 		mockErr       mocks.GrpcOpError
 		expectedToken string
-		expectedCode  codes.Code
-		expectedError string
+		expectedError error
 	}{
 		{
 			name:          "generate token successful",
 			adminID:       1,
 			adminEmail:    "admin@example.com",
-			mockToken:     mocks.MockToken,
 			expectedToken: mocks.MockToken,
-			expectedCode:  codes.OK,
+			expectedError: nil,
 		},
 		{
 			name:          "generate token fails due to grpc internal failure",
 			adminID:       1,
 			adminEmail:    "admin@example.com",
 			mockErr:       mocks.GrpcOpInternalError,
-			expectedCode:  codes.Internal,
-			expectedError: "failed to generate token",
+			expectedError: mocks.ErrGenerateTokenInternal,
 		},
 		{
 			name:          "generate token fails when TMS is unavailable",
 			adminID:       1,
 			adminEmail:    "admin@example.com",
 			mockErr:       mocks.GrpcOpUnavailable,
-			expectedCode:  codes.Unavailable,
-			expectedError: "TMS service unavailable",
+			expectedError: mocks.ErrTMSUnavailable,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := &mocks.MockTokenServiceClient{
-				Token:       tt.mockToken,
-				GenerateErr: tt.mockErr,
+				GenerateTokenError: tt.mockErr,
 			}
 
 			tc := NewTokenClientForTest(mock)
 			token, err := tc.GenerateToken(context.Background(), tt.adminID, tt.adminEmail)
 
-			if tt.expectedCode != codes.OK {
-				if err == nil {
-					t.Fatalf("expected error with code %v, got nil", tt.expectedCode)
-				}
-				st, ok := status.FromError(err)
-				if !ok {
-					t.Fatalf("expected gRPC status error, got %v", err)
-				}
-				if st.Code() != tt.expectedCode {
-					t.Errorf("expected code %v, got %v", tt.expectedCode, st.Code())
-				}
-				if st.Message() != tt.expectedError {
-					t.Errorf("expected message %q, got %q", tt.expectedError, st.Message())
+			if tt.expectedError != nil {
+				assertGrpcError(t, tt.expectedError, err)
+				if token != "" {
+					t.Errorf("expected empty token on error, got %q", token)
 				}
 				return
 			}
@@ -78,6 +61,17 @@ func TestGenerateToken(t *testing.T) {
 			}
 			if token != tt.expectedToken {
 				t.Errorf("expected token %q, got %q", tt.expectedToken, token)
+			}
+
+			// Verify the request that actually went out over the wire.
+			if mock.LastGenerateTokenReq == nil {
+				t.Fatal("expected GenerateToken to be called on the client")
+			}
+			if mock.LastGenerateTokenReq.AdminID != tt.adminID {
+				t.Errorf("expected request AdminID %d, got %d", tt.adminID, mock.LastGenerateTokenReq.AdminID)
+			}
+			if mock.LastGenerateTokenReq.AdminEmail != tt.adminEmail {
+				t.Errorf("expected request AdminEmail %q, got %q", tt.adminEmail, mock.LastGenerateTokenReq.AdminEmail)
 			}
 		})
 	}

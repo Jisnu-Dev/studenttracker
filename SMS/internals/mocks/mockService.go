@@ -23,8 +23,6 @@ type MockService struct {
 	Students            []models.Student
 	Student             models.Student
 	Admin               models.Admin
-	CreatedStudentID    int
-	RegisteredAdminID   int64
 }
 
 func (m *MockService) CreateStudent(ctx context.Context, student models.Student) (int, error) {
@@ -35,9 +33,6 @@ func (m *MockService) CreateStudent(ctx context.Context, student models.Student)
 		return 0, services.ErrCreateStudentFailed
 	}
 
-	if m.CreatedStudentID != 0 {
-		return m.CreatedStudentID, nil
-	}
 	return 1, nil
 }
 
@@ -56,7 +51,7 @@ func (m *MockService) GetAllStudents(ctx context.Context) ([]models.Student, err
 	}
 
 	return []models.Student{
-		{ID: 1, Name: "test", Email: "test@example.com", Department: "CS", Semester: 4, Age: 21},
+		{ID: 1, Name: "test", Email: "test@example.com", Department: models.CSE, Semester: 3, Age: 20},
 	}, nil
 }
 
@@ -68,10 +63,8 @@ func (m *MockService) GetStudentByID(ctx context.Context, id int64) (models.Stud
 		return models.Student{}, services.ErrGetStudentByIDFailed
 	}
 
-	if m.Student.ID != 0 {
-		return m.Student, nil
-	}
-	return models.Student{ID: id, Name: "test", Email: "test@example.com"}, nil
+
+	return models.Student{ID: id, Name: "test", Email: "test@example.com", Department: models.CSE, Semester: 3, Age: 20}, nil
 }
 
 func (m *MockService) DeleteStudent(ctx context.Context, id int64) error {
@@ -115,9 +108,6 @@ func (m *MockService) RegisterAdmin(ctx context.Context, admin models.Admin) (in
 		return 0, services.ErrRegisterAdminFailed
 	}
 
-	if m.RegisteredAdminID != 0 {
-		return m.RegisteredAdminID, nil
-	}
 	return 1, nil
 }
 

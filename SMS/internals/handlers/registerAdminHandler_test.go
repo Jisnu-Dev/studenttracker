@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -21,17 +20,15 @@ func TestRegisterAdminHandler(t *testing.T) {
 		body          string
 		mockErr       mocks.MockOpError
 		generateErr   mocks.GrpcOpError
-		mockToken     string
-		registeredID  int64
 		expectedCode  int
+		expectedBody  string
 		expectedError any
 	}{
 		{
 			name:         "admin registration successful",
 			body:         `{"name":"John Admin","email":"john.admin@example.com","password":"Admin1234!"}`,
-			mockToken:    mocks.MockToken,
-			registeredID: 1,
 			expectedCode: http.StatusOK,
+			expectedBody: `{"id":1,"message":"Admin created successfully","token":"signed.jwt.token"}`,
 		},
 		{
 			name:          "admin registration fails due to invalid json",
@@ -112,11 +109,9 @@ func TestRegisterAdminHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &mocks.MockService{
 				RegisterAdminError: tt.mockErr,
-				RegisteredAdminID:  tt.registeredID,
 			}
 			tc := grpcClient.NewTokenClientForTest(&mocks.MockTokenServiceClient{
-				Token:       tt.mockToken,
-				GenerateErr: tt.generateErr,
+				GenerateTokenError: tt.generateErr,
 			})
 
 			_, mux := setupMockHandler(svc, tc)
@@ -135,20 +130,13 @@ func TestRegisterAdminHandler(t *testing.T) {
 				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedCode, rr.Code, rr.Body.String())
 			}
 
-			if tt.expectedCode == http.StatusOK {
-				var resp struct {
-					ID      int64  `json:"id"`
-					Token   string `json:"token"`
-					Message string `json:"message"`
+			if tt.expectedBody != "" {
+				got := rr.Body.String()
+				if got[len(got)-1] == '\n' {
+					got = got[:len(got)-1]
 				}
-				if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
-					t.Fatalf("failed to decode response body: %v", err)
-				}
-				if resp.Token == "" {
-					t.Errorf("expected token in response, got empty")
-				}
-				if resp.Message != "Admin created successfully" {
-					t.Errorf("expected message 'Admin created successfully', got %q", resp.Message)
+				if got != tt.expectedBody {
+					t.Errorf("expected body %q, got %q", tt.expectedBody, got)
 				}
 			}
 

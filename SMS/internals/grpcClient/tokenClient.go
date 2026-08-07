@@ -2,7 +2,6 @@ package grpcClient
 
 import (
 	"context"
-	"fmt"
 
 	tokenpb "github.com/Jisnu-Dev/studenttracker/gen/token"
 	"google.golang.org/grpc"
@@ -28,7 +27,7 @@ type TokenClient struct {
 func NewTokenClient(TMSAddress string) (*TokenClient, error) {
 	conn, err := grpc.NewClient(TMSAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create gRPC connection to TMS: %w", err)
+		return nil, err
 	}
 
 	return &TokenClient{

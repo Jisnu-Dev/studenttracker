@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -51,19 +52,17 @@ func mount(router *gin.Engine, handler *handlers.Handler, tokenClient *grpcClien
 	studentRoutes.DELETE("/:id", handler.DeleteStudentHandler)
 }
 
-func run() error {
+func run() {
 	config := loadConfig()
 
-	db, err := connectToDB(&config.DB)
-	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
-	}
+	db := connectToDB(&config.DB)
 	defer db.Close()
 
 	//connecting to TMS gRPC service
 	tokenClient, err := grpcClient.NewTokenClient(config.TMSUrl)
 	if err != nil {
-		return fmt.Errorf("failed to create token client: %w", err)
+		slog.Error("Failed to create token client", "error", err, "function", "run", "location", "cmd/api.go")
+		os.Exit(1)
 	}
 
 	service := services.NewService(db)
@@ -78,10 +77,9 @@ func run() error {
 
 	log.Printf("Server starting on port %s", config.ServerPort)
 	if err := router.Run(":" + config.ServerPort); err != nil {
-		return fmt.Errorf("server failed to start: %w", err)
+		slog.Error("Server failed to start", "error", err, "function", "run", "location", "cmd/api.go")
+		os.Exit(1)
 	}
-
-	return nil
 }
 
 func loadConfig() *AppConfig {
@@ -117,17 +115,19 @@ func getDSN(cfg *DatabaseConfig) string {
 		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode)
 }
 
-func connectToDB(cfg *DatabaseConfig) (*sql.DB, error) {
+func connectToDB(cfg *DatabaseConfig) *sql.DB {
 	dsn := getDSN(cfg)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		return nil, err
+		slog.Error("Failed to open database connection", "error", err, "function", "connectToDB", "location", "cmd/api.go", "host", cfg.Host)
+		os.Exit(1)
 	}
 
 	if err := db.Ping(); err != nil {
-		return nil, err
+		slog.Error("Failed to ping database", "error", err, "function", "connectToDB", "location", "cmd/api.go")
+		os.Exit(1)
 	}
 
 	log.Println("Connected to DB successfully")
-	return db, nil
+	return db
 }

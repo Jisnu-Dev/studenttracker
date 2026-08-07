@@ -18,5 +18,10 @@ func (h *Handler) GetStudentByIDHandler(c *gin.Context) {
 		return
 	}
 
+	if student.ID == 0 {
+		RespondWithJSON(c, http.StatusOK, []interface{}{})
+		return
+	}
+
 	RespondWithJSON(c, http.StatusOK, gin.H{"student": student})
 }

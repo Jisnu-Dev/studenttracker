@@ -1,4 +1,4 @@
-package handlers
+package grpcHandler
 
 import (
 	"net/mail"
@@ -62,7 +62,7 @@ func ValidateGenerateTokenReq(req *tokenpb.GenerateTokenRequest) error {
 	return nil
 }
 
-func ValidateValidateTokenReq(req *tokenpb.ValidateTokenRequest) error {
+func ValidateTokenReq(req *tokenpb.ValidateTokenRequest) error {
 	if req == nil {
 		return GrpcError(codes.InvalidArgument, ErrRequestNil.Error())
 	}

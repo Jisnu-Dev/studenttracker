@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,6 +19,7 @@ func TestPatchStudentHandler(t *testing.T) {
 		body          string
 		mockErr       mocks.MockOpError
 		expectedCode  int
+		expectedBody  string
 		expectedError any
 	}{
 		{
@@ -27,36 +27,42 @@ func TestPatchStudentHandler(t *testing.T) {
 			paramID:      "1",
 			body:         `{"name":"test name"}`,
 			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
 		},
 		{
 			name:         "patch student successful - missing name",
 			paramID:      "1",
 			body:         `{"email":"test@example.com","department":"CSE","semester":3,"age":20}`,
 			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
 		},
 		{
 			name:         "patch student successful - missing email",
 			paramID:      "1",
 			body:         `{"name":"test name","department":"CSE","semester":3,"age":20}`,
 			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
 		},
 		{
 			name:         "patch student successful - missing department",
 			paramID:      "1",
 			body:         `{"name":"test name","email":"test@example.com","semester":3,"age":20}`,
 			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
 		},
 		{
 			name:         "patch student successful - missing semester",
 			paramID:      "1",
 			body:         `{"name":"test name","email":"test@example.com","department":"CSE","age":20}`,
 			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
 		},
 		{
 			name:         "patch student successful - missing age",
 			paramID:      "1",
 			body:         `{"name":"test name","email":"test@example.com","department":"CSE","semester":3}`,
 			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
 		},
 		{
 			name:          "patch student fails due to non-numeric id",
@@ -103,6 +109,7 @@ func TestPatchStudentHandler(t *testing.T) {
 			body:         `{"name":"test name"}`,
 			mockErr:      mocks.OpNotFound,
 			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
 		},
 		{
 			name:          "patch student fails because email already exists",
@@ -111,6 +118,36 @@ func TestPatchStudentHandler(t *testing.T) {
 			mockErr:       mocks.OpEmailExists,
 			expectedCode:  http.StatusConflict,
 			expectedError: services.ErrStudentEmailExists.Error(),
+		},
+		{
+			name:         "patch student succeeds with boundary-valid semester and age",
+			paramID:      "1",
+			body:         `{"semester":8,"age":60}`,
+			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
+		},
+		{
+			name:         "patch student succeeds with minimum boundary semester and age",
+			paramID:      "1",
+			body:         `{"semester":1,"age":18}`,
+			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
+		},
+		{
+			name:         "patch student fails due to age above maximum",
+			paramID:      "1",
+			body:         `{"age":61}`,
+			expectedCode: http.StatusBadRequest,
+			expectedError: map[string]string{
+				"age": models.ErrAgeInvalid.Error(),
+			},
+		},
+		{
+			name:         "patch student succeeds updating multiple fields together",
+			paramID:      "1",
+			body:         `{"name":"new name","semester":5,"age":22}`,
+			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Student updated successfully"}`,
 		},
 		{
 			name:          "patch student fails due to internal server error",
@@ -141,15 +178,13 @@ func TestPatchStudentHandler(t *testing.T) {
 				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedCode, rr.Code, rr.Body.String())
 			}
 
-			if tt.expectedCode == http.StatusOK {
-				var resp struct {
-					Message string `json:"message"`
+			if tt.expectedBody != "" {
+				got := rr.Body.String()
+				if len(got) > 0 && got[len(got)-1] == '\n' {
+					got = got[:len(got)-1]
 				}
-				if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
-					t.Fatalf("failed to decode response body: %v", err)
-				}
-				if resp.Message != "Student updated successfully" {
-					t.Errorf("expected message 'Student updated successfully', got %q", resp.Message)
+				if got != tt.expectedBody {
+					t.Errorf("expected body %q, got %q", tt.expectedBody, got)
 				}
 			}
 

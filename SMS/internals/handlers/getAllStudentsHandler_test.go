@@ -1,7 +1,6 @@
 package handlers_test
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,22 +12,17 @@ import (
 
 func TestGetAllStudentsHandler(t *testing.T) {
 	tests := []struct {
-		name             string
-		mockErr          mocks.MockOpError
-		returnEmpty      bool
-		mockStudents     []models.Student
-		expectedStudents []models.Student
-		expectedCode     int
-		expectedError    any
+		name          string
+		mockErr       mocks.MockOpError
+		returnEmpty   bool
+		mockStudents  []models.Student
+		expectedBody  string
+		expectedCode  int
+		expectedError any
 	}{
 		{
 			name: "retrieve all students successful - single student",
-			mockStudents: []models.Student{
-				{ID: 1, Name: "test", Email: "test@example.com", Department: "CS", Semester: 4, Age: 21},
-			},
-			expectedStudents: []models.Student{
-				{ID: 1, Name: "test", Email: "test@example.com", Department: "CS", Semester: 4, Age: 21},
-			},
+			expectedBody: `[{"id":1,"name":"test","email":"test@example.com","department":"CSE","semester":3,"age":20,"createdAtUtc":"0001-01-01T00:00:00Z","updatedAtUtc":"0001-01-01T00:00:00Z"}]`,
 			expectedCode: http.StatusOK,
 		},
 		{
@@ -38,18 +32,14 @@ func TestGetAllStudentsHandler(t *testing.T) {
 				{ID: 2, Name: "Bob", Email: "bob@example.com", Department: models.ECE, Semester: 3, Age: 20},
 				{ID: 3, Name: "Charlie", Email: "charlie@example.com", Department: models.IT, Semester: 7, Age: 22},
 			},
-			expectedStudents: []models.Student{
-				{ID: 1, Name: "Alice", Email: "alice@example.com", Department: models.CSE, Semester: 5, Age: 21},
-				{ID: 2, Name: "Bob", Email: "bob@example.com", Department: models.ECE, Semester: 3, Age: 20},
-				{ID: 3, Name: "Charlie", Email: "charlie@example.com", Department: models.IT, Semester: 7, Age: 22},
-			},
+			expectedBody: `[{"id":1,"name":"Alice","email":"alice@example.com","department":"CSE","semester":5,"age":21,"createdAtUtc":"0001-01-01T00:00:00Z","updatedAtUtc":"0001-01-01T00:00:00Z"},{"id":2,"name":"Bob","email":"bob@example.com","department":"ECE","semester":3,"age":20,"createdAtUtc":"0001-01-01T00:00:00Z","updatedAtUtc":"0001-01-01T00:00:00Z"},{"id":3,"name":"Charlie","email":"charlie@example.com","department":"IT","semester":7,"age":22,"createdAtUtc":"0001-01-01T00:00:00Z","updatedAtUtc":"0001-01-01T00:00:00Z"}]`,
 			expectedCode: http.StatusOK,
 		},
 		{
-			name:             "retrieve all students successful - empty list when no students exist",
-			returnEmpty:      true,
-			expectedStudents: []models.Student{},
-			expectedCode:     http.StatusOK,
+			name:         "retrieve all students successful - empty list when no students exist",
+			returnEmpty:  true,
+			expectedBody: `[]`,
+			expectedCode: http.StatusOK,
 		},
 		{
 			name:          "retrieve all students fails due to internal server error",
@@ -81,23 +71,13 @@ func TestGetAllStudentsHandler(t *testing.T) {
 				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedCode, rr.Code, rr.Body.String())
 			}
 
-			if tt.expectedCode == http.StatusOK {
-				var gotStudents []models.Student
-				if err := json.NewDecoder(rr.Body).Decode(&gotStudents); err != nil {
-					t.Fatalf("failed to decode response body: %v", err)
+			if tt.expectedBody != "" {
+				got := rr.Body.String()
+				if len(got) > 0 && got[len(got)-1] == '\n' {
+					got = got[:len(got)-1]
 				}
-				if len(gotStudents) != len(tt.expectedStudents) {
-					t.Fatalf("expected %d students, got %d", len(tt.expectedStudents), len(gotStudents))
-				}
-				for i := range gotStudents {
-					if gotStudents[i].ID != tt.expectedStudents[i].ID ||
-						gotStudents[i].Name != tt.expectedStudents[i].Name ||
-						gotStudents[i].Email != tt.expectedStudents[i].Email ||
-						gotStudents[i].Department != tt.expectedStudents[i].Department ||
-						gotStudents[i].Semester != tt.expectedStudents[i].Semester ||
-						gotStudents[i].Age != tt.expectedStudents[i].Age {
-						t.Errorf("student at index %d mismatch: expected %+v, got %+v", i, tt.expectedStudents[i], gotStudents[i])
-					}
+				if got != tt.expectedBody {
+					t.Errorf("expected body %q, got %q", tt.expectedBody, got)
 				}
 			}
 
