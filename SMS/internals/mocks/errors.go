@@ -36,6 +36,9 @@ const (
 	// GrpcOpInternalError simulates an internal gRPC service failure (codes.Internal).
 	GrpcOpInternalError
 
-	// GrpcOpInvalidToken simulates an invalid or expired token rejection (codes.Unauthenticated).
+	// GrpcOpInvalidToken simulates an invalid, malformed, or expired token rejection (codes.Unauthenticated).
 	GrpcOpInvalidToken
+
+	// GrpcOpUnavailable simulates a TMS service connectivity failure (codes.Unavailable).
+	GrpcOpUnavailable
 )

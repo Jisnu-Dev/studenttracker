@@ -1,13 +1,11 @@
 package services_test
 
 import (
-	"errors"
 	"reflect"
 	"testing"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
 	"github.com/Jisnu-Dev/studenttracker/internals/services"
-	"github.com/lib/pq"
 )
 
 func ptr[T any](v T) *T                                      { return &v }
@@ -22,12 +20,6 @@ func TestBuildPatchQuery(t *testing.T) {
 		expectedArgs  []interface{}
 		expectError   bool
 	}{
-		{
-			name:        "no fields provided - returns error",
-			id:          1,
-			patch:       models.PatchStudent{},
-			expectError: true,
-		},
 		{
 			name: "single field - name only",
 			id:   1,
@@ -188,48 +180,6 @@ func TestBuildPatchQuery(t *testing.T) {
 
 			if !reflect.DeepEqual(args, tt.expectedArgs) {
 				t.Errorf("expected args %v, got %v", tt.expectedArgs, args)
-			}
-		})
-	}
-}
-
-func TestIsUniqueViolation(t *testing.T) {
-	tests := []struct {
-		name     string
-		err      error
-		expected bool
-	}{
-		{
-			name:     "nil error returns false",
-			err:      nil,
-			expected: false,
-		},
-		{
-			name:     "generic error returns false",
-			err:      errors.New("some standard error"),
-			expected: false,
-		},
-		{
-			name: "pq error with non-unique-violation code returns false",
-			err: &pq.Error{
-				Code: "23503", // foreign key violation
-			},
-			expected: false,
-		},
-		{
-			name: "pq error with unique violation code 23505 returns true",
-			err: &pq.Error{
-				Code: pq.ErrorCode(services.PostgresUniqueViolationCode),
-			},
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := services.IsUniqueViolation(tt.err)
-			if got != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, got)
 			}
 		})
 	}

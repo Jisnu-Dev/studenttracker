@@ -25,13 +25,6 @@ type MockService struct {
 	Admin               models.Admin
 	CreatedStudentID    int
 	RegisteredAdminID   int64
-
-	// 3. Captured arguments (for verification in tests)
-	CapturedID           int64
-	CapturedEmail        string
-	CapturedStudent      models.Student
-	CapturedPatchStudent models.PatchStudent
-	CapturedAdmin        models.Admin
 }
 
 func (m *MockService) CreateStudent(ctx context.Context, student models.Student) (int, error) {
@@ -70,7 +63,7 @@ func (m *MockService) GetAllStudents(ctx context.Context) ([]models.Student, err
 func (m *MockService) GetStudentByID(ctx context.Context, id int64) (models.Student, error) {
 	switch m.GetStudentByIDError {
 	case OpNotFound:
-		return models.Student{}, services.ErrStudentNotFound
+		return models.Student{}, nil
 	case OpInternalError:
 		return models.Student{}, services.ErrGetStudentByIDFailed
 	}
@@ -83,8 +76,6 @@ func (m *MockService) GetStudentByID(ctx context.Context, id int64) (models.Stud
 
 func (m *MockService) DeleteStudent(ctx context.Context, id int64) error {
 	switch m.DeleteStudentError {
-	case OpNotFound:
-		return services.ErrStudentNotFound
 	case OpInternalError:
 		return services.ErrDeleteStudentFailed
 	}
@@ -94,8 +85,6 @@ func (m *MockService) DeleteStudent(ctx context.Context, id int64) error {
 
 func (m *MockService) UpdateStudent(ctx context.Context, id int64, student models.Student) error {
 	switch m.UpdateStudentError {
-	case OpNotFound:
-		return services.ErrStudentNotFound
 	case OpEmailExists:
 		return services.ErrStudentEmailExists
 	case OpInternalError:
@@ -107,8 +96,6 @@ func (m *MockService) UpdateStudent(ctx context.Context, id int64, student model
 
 func (m *MockService) PatchStudent(ctx context.Context, id int64, student models.PatchStudent) error {
 	switch m.PatchStudentError {
-	case OpNotFound:
-		return services.ErrStudentNotFound
 	case OpEmailExists:
 		return services.ErrStudentEmailExists
 	case OpNoFieldsToUpdate:

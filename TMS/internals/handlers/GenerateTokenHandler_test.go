@@ -15,7 +15,7 @@ import (
 
 // assertGRPCError fails the test unless err is a gRPC status error with the
 // expected code, and whose message exactly matches expectedError.
-func assertGRPCError(t *testing.T, err error, wantCode codes.Code, expectedError string) {
+func assertGRPCError(t *testing.T, err error, expectedCode codes.Code, expectedError string) {
 	t.Helper()
 
 	if err == nil {
@@ -27,8 +27,8 @@ func assertGRPCError(t *testing.T, err error, wantCode codes.Code, expectedError
 		t.Fatalf("expected a gRPC status error, got %v", err)
 	}
 
-	if st.Code() != wantCode {
-		t.Errorf("expected code %v, got %v (message: %q)", wantCode, st.Code(), st.Message())
+	if st.Code() != expectedCode {
+		t.Errorf("expected code %v, got %v (message: %q)", expectedCode, st.Code(), st.Message())
 	}
 
 	if st.Message() != expectedError {
@@ -84,124 +84,123 @@ func TestGenerateToken(t *testing.T) {
 	secret := []byte("test-secret-key")
 	h := &Handler{JWTSecret: secret}
 
-	// NOTE: assumes maxEmailLength is well under ~500 chars (e.g. RFC 5321's
-	// 254 cap). Adjust the repeat count if your constant is larger.
 	tooLongEmail := strings.Repeat("a", 500) + "@example.com"
 
 	tests := []struct {
 		name          string
 		handler       *Handler
 		req           *tokenpb.GenerateTokenRequest
-		wantCode      codes.Code
+		expectedCode  codes.Code
 		expectedError string
 		validate      func(t *testing.T, resp *tokenpb.GenerateTokenResponse)
 	}{
 		{
-			name: "succeeds with a valid admin id and email",
+			name: "generate token successful with valid admin id and email",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    42,
 				AdminEmail: "admin@example.com",
 			},
+			expectedCode: codes.OK,
 			validate: func(t *testing.T, resp *tokenpb.GenerateTokenResponse) {
 				assertValidToken(t, resp, secret, 42, "admin@example.com")
 			},
 		},
 		{
-			name:          "fails when request is nil",
+			name:          "generate token fails when request is nil",
 			req:           nil,
-			wantCode:      codes.InvalidArgument,
-			expectedError: "request cannot be nil",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrRequestNil.Error(),
 		},
 		{
-			name: "fails when admin id is zero",
+			name: "generate token fails when admin id is zero",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    0,
 				AdminEmail: "admin@example.com",
 			},
-			wantCode:      codes.InvalidArgument,
+			expectedCode:  codes.InvalidArgument,
 			expectedError: "admin_id is required and must be greater than 0",
 		},
 		{
-			name: "fails when admin id is negative",
+			name: "generate token fails when admin id is negative",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    -5,
 				AdminEmail: "admin@example.com",
 			},
-			wantCode:      codes.InvalidArgument,
-			expectedError: "admin_id is required and must be greater than 0",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrAdminIDInvalid.Error(),
 		},
 		{
-			name: "fails when admin email is empty",
+			name: "generate token fails when admin email is empty",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    1,
 				AdminEmail: "",
 			},
-			wantCode:      codes.InvalidArgument,
+			expectedCode:  codes.InvalidArgument,
 			expectedError: "admin_email is required",
 		},
 		{
-			name: "fails when admin email is only whitespace",
+			name: "generate token fails when admin email is only whitespace",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    1,
 				AdminEmail: "   ",
 			},
-			wantCode:      codes.InvalidArgument,
-			expectedError: "admin_email is required",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrAdminEmailRequired.Error(),
 		},
 		{
-			name: "fails when admin email exceeds max length",
+			name: "generate token fails when admin email exceeds max length",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    1,
 				AdminEmail: tooLongEmail,
 			},
-			wantCode:      codes.InvalidArgument,
-			expectedError: "admin_email exceeds maximum length",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrAdminEmailTooLong.Error(),
 		},
 		{
-			name: "fails when admin email contains internal whitespace",
+			name: "generate token fails when admin email contains internal whitespace",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    1,
 				AdminEmail: "admin user@example.com",
 			},
-			wantCode:      codes.InvalidArgument,
-			expectedError: "admin_email cannot contain whitespace",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrAdminEmailNoWhitespace.Error(),
 		},
 		{
-			name: "fails when admin email is malformed",
+			name: "generate token fails when admin email is malformed",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    1,
 				AdminEmail: "not-an-email",
 			},
-			wantCode:      codes.InvalidArgument,
+			expectedCode:  codes.InvalidArgument,
 			expectedError: "admin_email is invalid",
 		},
 		{
-			name: "fails when admin email has no domain dot",
+			name: "generate token fails when admin email has no domain dot",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    1,
 				AdminEmail: "admin@localhost",
 			},
-			wantCode:      codes.InvalidArgument,
-			expectedError: "admin_email is invalid",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrAdminEmailInvalid.Error(),
 		},
 		{
-			name: "fails and aggregates multiple validation errors",
+			name: "generate token fails and aggregates multiple validation errors",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    0,
 				AdminEmail: "",
 			},
-			wantCode:      codes.InvalidArgument,
-			expectedError: "admin_id is required and must be greater than 0; admin_email is required",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrAdminIDInvalid.Error() + "; " + ErrAdminEmailRequired.Error(),
 		},
 		{
-			name:    "fails when jwt token signing fails",
+			name:    "generate token fails when jwt token signing fails",
 			handler: &Handler{JWTSecret: "invalid-key-type"},
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    42,
 				AdminEmail: "admin@example.com",
 			},
-			wantCode:      codes.Internal,
-			expectedError: "failed to sign jwt token",
+			expectedCode:  codes.Internal,
+			expectedError: ErrGenerateTokenFailed.Error(),
 		},
 	}
 
@@ -214,8 +213,8 @@ func TestGenerateToken(t *testing.T) {
 
 			resp, err := targetHandler.GenerateToken(context.Background(), tt.req)
 
-			if tt.expectedError != "" {
-				assertGRPCError(t, err, tt.wantCode, tt.expectedError)
+			if tt.expectedCode != codes.OK {
+				assertGRPCError(t, err, tt.expectedCode, tt.expectedError)
 				if resp != nil {
 					t.Errorf("expected nil response on error, got %+v", resp)
 				}
@@ -223,7 +222,7 @@ func TestGenerateToken(t *testing.T) {
 			}
 
 			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
 			if tt.validate != nil {
 				tt.validate(t, resp)

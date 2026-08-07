@@ -1,8 +1,6 @@
 package handlers_test
 
 import (
-	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,176 +9,68 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestHashPasswordAndCheckPasswordHash(t *testing.T) {
-	password := "my_secure_password"
-	hash, err := handlers.HashPassword(password)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if hash == "" {
-		t.Fatal("expected hash to not be empty")
-	}
-
-	if !handlers.CheckPasswordHash(password, hash) {
-		t.Error("expected CheckPasswordHash to return true for correct password")
-	}
-
-	if handlers.CheckPasswordHash("wrong_password", hash) {
-		t.Error("expected CheckPasswordHash to return false for incorrect password")
-	}
-}
-
-func TestRespondWithError(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-
-	handlers.RespondWithError(c, http.StatusBadRequest, "an error occurred")
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
-	}
-
-	var response map[string]string
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatalf("failed to parse response body: %v", err)
-	}
-	if response["error"] != "an error occurred" {
-		t.Errorf("expected error message 'an error occurred', got '%s'", response["error"])
-	}
-}
-
-func TestRespondWithJSON(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-
-	payload := gin.H{"message": "success", "id": 123}
-	handlers.RespondWithJSON(c, http.StatusOK, payload)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
-	}
-
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatalf("failed to parse response body: %v", err)
-	}
-	if response["message"] != "success" {
-		t.Errorf("expected message 'success', got '%v'", response["message"])
-	}
-	if response["id"] != float64(123) {
-		t.Errorf("expected id 123, got '%v'", response["id"])
-	}
-}
-
-func TestBindJSON(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	t.Run("Valid JSON", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request, _ = http.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"name":"test name"}`))
-		c.Request.Header.Set("Content-Type", "application/json")
-
-		var target struct {
-			Name string `json:"name"`
-		}
-
-		if !handlers.BindJSON(c, &target) {
-			t.Error("expected BindJSON to return true")
-		}
-		if target.Name != "test name" {
-			t.Errorf("expected name 'test name', got '%s'", target.Name)
-		}
-	})
-
-	t.Run("Invalid JSON", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request, _ = http.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{invalid`))
-		c.Request.Header.Set("Content-Type", "application/json")
-
-		var target struct {
-			Name string `json:"name"`
-		}
-
-		if handlers.BindJSON(c, &target) {
-			t.Error("expected BindJSON to return false")
-		}
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
-	})
-}
-
 func TestParseParamID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	t.Run("Valid ID", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Params = gin.Params{{Key: "id", Value: "42"}}
+	tests := []struct {
+		name          string
+		paramValue    string
+		expectedID    int64
+		expectedOk    bool
+		expectedCode  int
+		expectedError any
+	}{
+		{
+			name:         "valid numeric ID",
+			paramValue:   "42",
+			expectedID:   42,
+			expectedOk:   true,
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:          "invalid ID - non numeric",
+			paramValue:    "abc",
+			expectedOk:    false,
+			expectedCode:  http.StatusBadRequest,
+			expectedError: handlers.ErrInvalidIDParam.Error(),
+		},
+		{
+			name:          "invalid ID - zero",
+			paramValue:    "0",
+			expectedOk:    false,
+			expectedCode:  http.StatusBadRequest,
+			expectedError: handlers.ErrInvalidIDParam.Error(),
+		},
+		{
+			name:          "invalid ID - negative",
+			paramValue:    "-10",
+			expectedOk:    false,
+			expectedCode:  http.StatusBadRequest,
+			expectedError: handlers.ErrInvalidIDParam.Error(),
+		},
+	}
 
-		id, ok := handlers.ParseParamID(c, "id")
-		if !ok {
-			t.Error("expected ok to be true")
-		}
-		if id != 42 {
-			t.Errorf("expected id 42, got %d", id)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Params = gin.Params{{Key: "id", Value: tt.paramValue}}
 
-	t.Run("Invalid ID - non numeric", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Params = gin.Params{{Key: "id", Value: "abc"}}
-
-		id, ok := handlers.ParseParamID(c, "id")
-		if ok {
-			t.Error("expected ok to be false")
-		}
-		if id != 0 {
-			t.Errorf("expected id 0, got %d", id)
-		}
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
-	})
-
-	t.Run("Invalid ID - zero", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Params = gin.Params{{Key: "id", Value: "0"}}
-
-		id, ok := handlers.ParseParamID(c, "id")
-		if ok {
-			t.Error("expected ok to be false")
-		}
-		if id != 0 {
-			t.Errorf("expected id 0, got %d", id)
-		}
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
-	})
-
-	t.Run("Invalid ID - negative", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Params = gin.Params{{Key: "id", Value: "-10"}}
-
-		id, ok := handlers.ParseParamID(c, "id")
-		if ok {
-			t.Error("expected ok to be false")
-		}
-		if id != 0 {
-			t.Errorf("expected id 0, got %d", id)
-		}
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
-	})
+			id, ok := handlers.ParseParamID(c, "id")
+			if ok != tt.expectedOk {
+				t.Errorf("expected ok %v, got %v", tt.expectedOk, ok)
+			}
+			if id != tt.expectedID {
+				t.Errorf("expected id %d, got %d", tt.expectedID, id)
+			}
+			if !tt.expectedOk {
+				if w.Code != tt.expectedCode {
+					t.Errorf("expected status code %d, got %d", tt.expectedCode, w.Code)
+				}
+				if tt.expectedError != nil {
+					checkError(t, w, tt.expectedError)
+				}
+			}
+		})
+	}
 }

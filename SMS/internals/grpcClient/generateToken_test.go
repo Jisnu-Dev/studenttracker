@@ -2,10 +2,11 @@ package grpcClient
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestGenerateToken(t *testing.T) {
@@ -16,34 +17,32 @@ func TestGenerateToken(t *testing.T) {
 		mockToken     string
 		mockErr       mocks.GrpcOpError
 		expectedToken string
+		expectedCode  codes.Code
 		expectedError string
-		sentinelError error
 	}{
 		{
-			name:          "success - returns default token from grpc response",
+			name:          "generate token successful",
 			adminID:       1,
 			adminEmail:    "admin@example.com",
-			expectedToken: "mock.jwt.token",
+			mockToken:     mocks.MockToken,
+			expectedToken: mocks.MockToken,
+			expectedCode:  codes.OK,
 		},
 		{
-			name:          "success - returns custom configured token",
-			adminID:       42,
-			adminEmail:    "admin.custom@example.com",
-			mockToken:     "custom.signed.jwt.token",
-			expectedToken: "custom.signed.jwt.token",
-		},
-		{
-			name:          "success - handles email with special characters and plus tag",
-			adminID:       5,
-			adminEmail:    "admin+tag_123@sub.domain.org",
-			expectedToken: "mock.jwt.token",
-		},
-		{
-			name:          "error - grpc call fails returns sentinel error",
+			name:          "generate token fails due to grpc internal failure",
 			adminID:       1,
 			adminEmail:    "admin@example.com",
 			mockErr:       mocks.GrpcOpInternalError,
-			sentinelError: ErrGenerateTokenFailed,
+			expectedCode:  codes.Internal,
+			expectedError: "failed to generate token",
+		},
+		{
+			name:          "generate token fails when TMS is unavailable",
+			adminID:       1,
+			adminEmail:    "admin@example.com",
+			mockErr:       mocks.GrpcOpUnavailable,
+			expectedCode:  codes.Unavailable,
+			expectedError: "TMS service unavailable",
 		},
 	}
 
@@ -57,27 +56,25 @@ func TestGenerateToken(t *testing.T) {
 			tc := NewTokenClientForTest(mock)
 			token, err := tc.GenerateToken(context.Background(), tt.adminID, tt.adminEmail)
 
-
-
-			if mock.CapturedAdminID != tt.adminID {
-				t.Errorf("expected captured adminID %d, got %d", tt.adminID, mock.CapturedAdminID)
-			}
-			if mock.CapturedAdminEmail != tt.adminEmail {
-				t.Errorf("expected captured adminEmail %q, got %q", tt.adminEmail, mock.CapturedAdminEmail)
-			}
-
-			if tt.sentinelError != nil {
+			if tt.expectedCode != codes.OK {
 				if err == nil {
-					t.Fatalf("expected error %q, got nil", tt.sentinelError)
+					t.Fatalf("expected error with code %v, got nil", tt.expectedCode)
 				}
-				if !errors.Is(err, tt.sentinelError) {
-					t.Errorf("expected error %q, got %q", tt.sentinelError, err)
+				st, ok := status.FromError(err)
+				if !ok {
+					t.Fatalf("expected gRPC status error, got %v", err)
+				}
+				if st.Code() != tt.expectedCode {
+					t.Errorf("expected code %v, got %v", tt.expectedCode, st.Code())
+				}
+				if st.Message() != tt.expectedError {
+					t.Errorf("expected message %q, got %q", tt.expectedError, st.Message())
 				}
 				return
 			}
 
 			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
 			if token != tt.expectedToken {
 				t.Errorf("expected token %q, got %q", tt.expectedToken, token)

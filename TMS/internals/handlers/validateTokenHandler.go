@@ -7,6 +7,7 @@ import (
 
 	tokenpb "github.com/Jisnu-Dev/TMS/gen/token"
 	"github.com/golang-jwt/jwt/v5"
+	"google.golang.org/grpc/codes"
 )
 
 func (h *Handler) ValidateToken(ctx context.Context, req *tokenpb.ValidateTokenRequest) (*tokenpb.ValidateTokenResponse, error) {
@@ -35,7 +36,8 @@ func (h *Handler) ValidateToken(ctx context.Context, req *tokenpb.ValidateTokenR
 			errors.Is(err, jwt.ErrTokenSignatureInvalid) ||
 			errors.Is(err, jwt.ErrTokenExpired) ||
 			errors.Is(err, jwt.ErrTokenNotValidYet) ||
-			errors.Is(err, jwt.ErrTokenInvalidClaims) {
+			errors.Is(err, jwt.ErrTokenInvalidClaims) ||
+			errors.Is(err, jwt.ErrTokenUnverifiable) {
 
 			slog.Warn("invalid token",
 				slog.String("function", "ValidateToken"),
@@ -48,7 +50,7 @@ func (h *Handler) ValidateToken(ctx context.Context, req *tokenpb.ValidateTokenR
 			slog.String("function", "ValidateToken"),
 			slog.Any("error", err),
 		)
-		return nil, ErrValidateTokenFailed
+		return nil, GrpcError(codes.Internal, ErrValidateTokenFailed.Error())
 	}
 
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {

@@ -2,10 +2,11 @@ package grpcClient
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestValidateToken(t *testing.T) {
@@ -18,36 +19,39 @@ func TestValidateToken(t *testing.T) {
 		expectedIsValid bool
 		expectedAdminID int64
 		expectedEmail   string
+		expectedCode    codes.Code
 		expectedError   string
-		sentinelError   error
 	}{
 		{
-			name:            "success - valid token returns default claims",
+			name:            "validate token successful",
 			token:           "valid.jwt.token",
-			expectedIsValid: true,
-			expectedAdminID: 1,
-			expectedEmail:   "admin@example.com",
-		},
-		{
-			name:            "success - valid token returns custom claims",
-			token:           "custom.jwt.token",
 			mockAdminID:     42,
-			mockEmail:       "superadmin@school.org",
+			mockEmail:       "admin@example.com",
 			expectedIsValid: true,
 			expectedAdminID: 42,
-			expectedEmail:   "superadmin@school.org",
+			expectedEmail:   "admin@example.com",
+			expectedCode:    codes.OK,
 		},
 		{
-			name:          "error - invalid token rejected by server returns sentinel error",
+			name:          "validate token fails due to invalid or expired token",
 			token:         "invalid.jwt.token",
 			mockErr:       mocks.GrpcOpInvalidToken,
-			sentinelError: ErrValidateTokenFailed,
+			expectedCode:  codes.Unauthenticated,
+			expectedError: "invalid or expired token",
 		},
 		{
-			name:          "error - grpc internal failure returns sentinel error",
+			name:          "validate token fails due to grpc internal failure",
 			token:         "some.jwt.token",
 			mockErr:       mocks.GrpcOpInternalError,
-			sentinelError: ErrValidateTokenFailed,
+			expectedCode:  codes.Internal,
+			expectedError: "token validation service unavailable",
+		},
+		{
+			name:          "validate token fails when TMS is unavailable",
+			token:         "some.jwt.token",
+			mockErr:       mocks.GrpcOpUnavailable,
+			expectedCode:  codes.Unavailable,
+			expectedError: "TMS service unavailable",
 		},
 	}
 
@@ -60,35 +64,42 @@ func TestValidateToken(t *testing.T) {
 			}
 
 			tc := NewTokenClientForTest(mock)
-			isValid, adminID, email, err := tc.ValidateToken(context.Background(), tt.token)
+			resp, err := tc.ValidateToken(context.Background(), tt.token)
 
-
-
-			if mock.CapturedToken != tt.token {
-				t.Errorf("expected captured token %q, got %q", tt.token, mock.CapturedToken)
-			}
-
-			if tt.sentinelError != nil {
+			if tt.expectedCode != codes.OK {
 				if err == nil {
-					t.Fatalf("expected error %q, got nil", tt.sentinelError)
+					t.Fatalf("expected error with code %v, got nil", tt.expectedCode)
 				}
-				if !errors.Is(err, tt.sentinelError) {
-					t.Errorf("expected error %q, got %q", tt.sentinelError, err)
+				st, ok := status.FromError(err)
+				if !ok {
+					t.Fatalf("expected gRPC status error, got %v", err)
+				}
+				if st.Code() != tt.expectedCode {
+					t.Errorf("expected code %v, got %v", tt.expectedCode, st.Code())
+				}
+				if st.Message() != tt.expectedError {
+					t.Errorf("expected message %q, got %q", tt.expectedError, st.Message())
+				}
+				if resp != nil {
+					t.Errorf("expected nil response on error, got %+v", resp)
 				}
 				return
 			}
 
 			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
-			if isValid != tt.expectedIsValid {
-				t.Errorf("expected isValid %v, got %v", tt.expectedIsValid, isValid)
+			if resp == nil {
+				t.Fatal("expected non-nil response")
 			}
-			if adminID != tt.expectedAdminID {
-				t.Errorf("expected adminID %d, got %d", tt.expectedAdminID, adminID)
+			if resp.IsValid != tt.expectedIsValid {
+				t.Errorf("expected isValid %v, got %v", tt.expectedIsValid, resp.IsValid)
 			}
-			if email != tt.expectedEmail {
-				t.Errorf("expected email %q, got %q", tt.expectedEmail, email)
+			if resp.AdminID != tt.expectedAdminID {
+				t.Errorf("expected adminID %d, got %d", tt.expectedAdminID, resp.AdminID)
+			}
+			if resp.AdminEmail != tt.expectedEmail {
+				t.Errorf("expected email %q, got %q", tt.expectedEmail, resp.AdminEmail)
 			}
 		})
 	}

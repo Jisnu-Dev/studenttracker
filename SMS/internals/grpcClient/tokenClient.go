@@ -9,9 +9,15 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+type ValidateTokenResponse struct {
+	IsValid    bool
+	AdminID    int64
+	AdminEmail string
+}
+
 type TokenClientInterface interface {
 	GenerateToken(ctx context.Context, adminID int64, adminEmail string) (string, error)
-	ValidateToken(ctx context.Context, token string) (bool, int64, string, error)
+	ValidateToken(ctx context.Context, token string) (*ValidateTokenResponse, error)
 }
 
 type TokenClient struct {

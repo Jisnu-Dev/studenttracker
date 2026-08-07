@@ -15,64 +15,66 @@ func TestValidateGenerateTokenReq(t *testing.T) {
 	tests := []struct {
 		name          string
 		req           *tokenpb.GenerateTokenRequest
-		wantCode      codes.Code
+		expectedCode  codes.Code
 		expectedError string
 	}{
 		{
-			name:          "Nil request",
+			name:          "fails when request is nil",
 			req:           nil,
-			wantCode:      codes.InvalidArgument,
-			expectedError: "request cannot be nil",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrRequestNil.Error(),
 		},
 		{
-			name: "Invalid admin id",
+			name: "fails when admin id is invalid (zero)",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    0,
 				AdminEmail: "admin@example.com",
 			},
-			wantCode:      codes.InvalidArgument,
-			expectedError: "admin_id is required and must be greater than 0",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrAdminIDInvalid.Error(),
 		},
 		{
-			name: "Empty admin email",
+			name: "fails when admin email is empty",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    1,
 				AdminEmail: " ",
 			},
-			wantCode:      codes.InvalidArgument,
-			expectedError: "admin_email is required",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrAdminEmailRequired.Error(),
 		},
 		{
-			name: "Invalid email format",
+			name: "fails when admin email format is invalid",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    1,
 				AdminEmail: "adminexample.com",
 			},
-			wantCode:      codes.InvalidArgument,
-			expectedError: "admin_email is invalid",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrAdminEmailInvalid.Error(),
 		},
 		{
-			name: "Email exceeds maximum length",
+			name: "fails when admin email exceeds maximum length",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    1,
 				AdminEmail: longEmail,
 			},
-			wantCode:      codes.InvalidArgument,
-			expectedError: "admin_email exceeds maximum length",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrAdminEmailTooLong.Error(),
 		},
 		{
-			name: "Valid request",
+			name: "validation passes with valid request",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    1,
 				AdminEmail: "admin@example.com",
 			},
+			expectedCode: codes.OK,
 		},
 		{
-			name: "Valid request with trimmed email",
+			name: "validation passes with trimmed email",
 			req: &tokenpb.GenerateTokenRequest{
 				AdminID:    10,
 				AdminEmail: "  admin@example.com  ",
 			},
+			expectedCode: codes.OK,
 		},
 	}
 
@@ -80,7 +82,7 @@ func TestValidateGenerateTokenReq(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateGenerateTokenReq(tt.req)
 
-			if tt.expectedError != "" {
+			if tt.expectedCode != codes.OK {
 				if err == nil {
 					t.Fatalf("expected error %q, got nil", tt.expectedError)
 				}
@@ -88,16 +90,17 @@ func TestValidateGenerateTokenReq(t *testing.T) {
 				if !ok {
 					t.Fatalf("expected gRPC status error, got %v", err)
 				}
-				if st.Code() != tt.wantCode {
-					t.Fatalf("expected code %v, got %v", tt.wantCode, st.Code())
+				if st.Code() != tt.expectedCode {
+					t.Fatalf("expected code %v, got %v", tt.expectedCode, st.Code())
 				}
 				if st.Message() != tt.expectedError {
 					t.Errorf("expected error message %q, got %q", tt.expectedError, st.Message())
 				}
-			} else {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
 			}
 		})
 	}
@@ -107,42 +110,44 @@ func TestValidateValidateTokenReq(t *testing.T) {
 	tests := []struct {
 		name          string
 		req           *tokenpb.ValidateTokenRequest
-		wantCode      codes.Code
+		expectedCode  codes.Code
 		expectedError string
 	}{
 		{
-			name:          "Nil request",
+			name:          "fails when request is nil",
 			req:           nil,
-			wantCode:      codes.InvalidArgument,
-			expectedError: "request cannot be nil",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrRequestNil.Error(),
 		},
 		{
-			name: "Empty token",
+			name: "fails when token is empty",
 			req: &tokenpb.ValidateTokenRequest{
 				Token: " ",
 			},
-			wantCode:      codes.InvalidArgument,
-			expectedError: "token is required",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrTokenRequired.Error(),
 		},
 		{
-			name: "Malformed token",
+			name: "fails when token is malformed",
 			req: &tokenpb.ValidateTokenRequest{
 				Token: "header.payload",
 			},
-			wantCode:      codes.InvalidArgument,
-			expectedError: "malformed token structure",
+			expectedCode:  codes.InvalidArgument,
+			expectedError: ErrTokenMalformed.Error(),
 		},
 		{
-			name: "Valid token structure",
+			name: "validation passes with valid token structure",
 			req: &tokenpb.ValidateTokenRequest{
 				Token: "header.payload.signature",
 			},
+			expectedCode: codes.OK,
 		},
 		{
-			name: "Valid token with trimmed whitespace",
+			name: "validation passes with trimmed whitespace token",
 			req: &tokenpb.ValidateTokenRequest{
 				Token: "  header.payload.signature  ",
 			},
+			expectedCode: codes.OK,
 		},
 	}
 
@@ -150,7 +155,7 @@ func TestValidateValidateTokenReq(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateValidateTokenReq(tt.req)
 
-			if tt.expectedError != "" {
+			if tt.expectedCode != codes.OK {
 				if err == nil {
 					t.Fatalf("expected error %q, got nil", tt.expectedError)
 				}
@@ -158,16 +163,17 @@ func TestValidateValidateTokenReq(t *testing.T) {
 				if !ok {
 					t.Fatalf("expected gRPC status error, got %v", err)
 				}
-				if st.Code() != tt.wantCode {
-					t.Fatalf("expected code %v, got %v", tt.wantCode, st.Code())
+				if st.Code() != tt.expectedCode {
+					t.Fatalf("expected code %v, got %v", tt.expectedCode, st.Code())
 				}
 				if st.Message() != tt.expectedError {
 					t.Errorf("expected error message %q, got %q", tt.expectedError, st.Message())
 				}
-			} else {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
 			}
 		})
 	}

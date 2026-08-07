@@ -2,131 +2,123 @@ package handlers_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
+	"github.com/Jisnu-Dev/studenttracker/internals/handlers"
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
+	"github.com/Jisnu-Dev/studenttracker/internals/models"
+	"github.com/Jisnu-Dev/studenttracker/internals/services"
 )
 
 func TestPatchStudentHandler(t *testing.T) {
 	tests := []struct {
-		name               string
-		paramID            string
-		body               string
-		mockErr            mocks.MockOpError
-		expectedStatusCode int
-		expectedBody       string
+		name          string
+		paramID       string
+		body          string
+		mockErr       mocks.MockOpError
+		expectedCode  int
+		expectedError any
 	}{
 		{
-			name:               "success - valid id and partial body (single field) patches student and returns 200",
-			paramID:            "1",
-			body:               `{"name":"test name"}`,
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `{"message":"Student updated successfully"}`,
+			name:         "patch student successful - single field",
+			paramID:      "1",
+			body:         `{"name":"test name"}`,
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:               "success - valid id and missing name body patches student and returns 200",
-			paramID:            "1",
-			body:               `{"email":"test@example.com","department":"CSE","semester":3,"age":20}`,
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `{"message":"Student updated successfully"}`,
+			name:         "patch student successful - missing name",
+			paramID:      "1",
+			body:         `{"email":"test@example.com","department":"CSE","semester":3,"age":20}`,
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:               "success - valid id and missing email body patches student and returns 200",
-			paramID:            "1",
-			body:               `{"name":"test name","department":"CSE","semester":3,"age":20}`,
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `{"message":"Student updated successfully"}`,
+			name:         "patch student successful - missing email",
+			paramID:      "1",
+			body:         `{"name":"test name","department":"CSE","semester":3,"age":20}`,
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:               "success - valid id and missing department body patches student and returns 200",
-			paramID:            "1",
-			body:               `{"name":"test name","email":"test@example.com","semester":3,"age":20}`,
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `{"message":"Student updated successfully"}`,
+			name:         "patch student successful - missing department",
+			paramID:      "1",
+			body:         `{"name":"test name","email":"test@example.com","semester":3,"age":20}`,
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:               "success - valid id and missing semester body patches student and returns 200",
-			paramID:            "1",
-			body:               `{"name":"test name","email":"test@example.com","department":"CSE","age":20}`,
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `{"message":"Student updated successfully"}`,
+			name:         "patch student successful - missing semester",
+			paramID:      "1",
+			body:         `{"name":"test name","email":"test@example.com","department":"CSE","age":20}`,
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:               "success - valid id and missing age body patches student and returns 200",
-			paramID:            "1",
-			body:               `{"name":"test name","email":"test@example.com","department":"CSE","semester":3}`,
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `{"message":"Student updated successfully"}`,
+			name:         "patch student successful - missing age",
+			paramID:      "1",
+			body:         `{"name":"test name","email":"test@example.com","department":"CSE","semester":3}`,
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:               "bad request - non-numeric id param returns 400",
-			paramID:            "abc",
-			body:               `{"name":"test name"}`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"invalid id parameter"}`,
+			name:          "patch student fails due to non-numeric id",
+			paramID:       "abc",
+			body:          `{"name":"test name"}`,
+			expectedCode:  http.StatusBadRequest,
+			expectedError: handlers.ErrInvalidIDParam.Error(),
 		},
 		{
-			name:               "bad request - malformed JSON body returns 400",
-			paramID:            "1",
-			body:               `{`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"invalid request payload"}`,
+			name:          "patch student fails due to invalid json",
+			paramID:       "1",
+			body:          `{`,
+			expectedCode:  http.StatusBadRequest,
+			expectedError: handlers.ErrInvalidPayload.Error(),
 		},
 		{
-			name:               "bad request - empty body with no fields returns 400",
-			paramID:            "1",
-			body:               `{}`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"at least one field must be provided for update"}`,
+			name:          "patch student fails due to empty body with no fields",
+			paramID:       "1",
+			body:          `{}`,
+			expectedCode:  http.StatusBadRequest,
+			expectedError: models.ErrAtLeastOneField.Error(),
 		},
 		{
-			name:               "bad request - invalid email in patch fails validation",
-			paramID:            "1",
-			body:               `{"email":"not-an-email"}`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"errors":{"email":"email is invalid"}}`,
+			name:         "patch student fails due to invalid email format",
+			paramID:      "1",
+			body:         `{"email":"not-an-email"}`,
+			expectedCode: http.StatusBadRequest,
+			expectedError: map[string]string{
+				"email": models.ErrInvalidEmail.Error(),
+			},
 		},
 		{
-			name:               "bad request - invalid semester in patch fails validation",
-			paramID:            "1",
-			body:               `{"semester":0}`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"errors":{"semester":"semester must be between 1 and 8"}}`,
+			name:         "patch student fails due to invalid semester",
+			paramID:      "1",
+			body:         `{"semester":0}`,
+			expectedCode: http.StatusBadRequest,
+			expectedError: map[string]string{
+				"semester": models.ErrSemesterInvalid.Error(),
+			},
 		},
 		{
-			name:               "success (not found) - student does not exist but idempotent patch returns 200",
-			paramID:            "99",
-			body:               `{"name":"test name"}`,
-			mockErr:            mocks.OpNotFound,
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `{"message":"Student updated successfully"}`,
+			name:         "patch student successful when student not found (idempotent)",
+			paramID:      "99",
+			body:         `{"name":"test name"}`,
+			mockErr:      mocks.OpNotFound,
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:               "conflict - duplicate email returns 409",
-			paramID:            "1",
-			body:               `{"email":"taken@example.com"}`,
-			mockErr:            mocks.OpEmailExists,
-			expectedStatusCode: http.StatusConflict,
-			expectedBody:       `{"error":"student with this email already exists"}`,
+			name:          "patch student fails because email already exists",
+			paramID:       "1",
+			body:          `{"email":"taken@example.com"}`,
+			mockErr:       mocks.OpEmailExists,
+			expectedCode:  http.StatusConflict,
+			expectedError: services.ErrStudentEmailExists.Error(),
 		},
 		{
-			name:               "bad request - no fields to update returns 400",
-			paramID:            "1",
-			body:               `{"name":"test name"}`,
-			mockErr:            mocks.OpNoFieldsToUpdate,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"at least one field must be provided for update"}`,
-		},
-		{
-			name:               "internal server error - service failure returns 500",
-			paramID:            "1",
-			body:               `{"name":"test name"}`,
-			mockErr:            mocks.OpInternalError,
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedBody:       `{"error":"unable to patch student"}`,
+			name:          "patch student fails due to internal server error",
+			paramID:       "1",
+			body:          `{"name":"test name"}`,
+			mockErr:       mocks.OpInternalError,
+			expectedCode:  http.StatusInternalServerError,
+			expectedError: services.ErrPatchStudentFailed.Error(),
 		},
 	}
 
@@ -141,17 +133,28 @@ func TestPatchStudentHandler(t *testing.T) {
 				bytes.NewBufferString(tt.body),
 			)
 			req.Header.Set("Content-Type", "application/json")
-			
-			rr := httptest.NewRecorder()
 
+			rr := httptest.NewRecorder()
 			mux.ServeHTTP(rr, req)
 
-			if rr.Code != tt.expectedStatusCode {
-				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedStatusCode, rr.Code, rr.Body.String())
+			if rr.Code != tt.expectedCode {
+				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedCode, rr.Code, rr.Body.String())
 			}
 
-			if got := strings.TrimSpace(rr.Body.String()); got != tt.expectedBody {
-				t.Errorf("expected body %q, got %q", tt.expectedBody, got)
+			if tt.expectedCode == http.StatusOK {
+				var resp struct {
+					Message string `json:"message"`
+				}
+				if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+					t.Fatalf("failed to decode response body: %v", err)
+				}
+				if resp.Message != "Student updated successfully" {
+					t.Errorf("expected message 'Student updated successfully', got %q", resp.Message)
+				}
+			}
+
+			if tt.expectedError != nil {
+				checkError(t, rr, tt.expectedError)
 			}
 		})
 	}

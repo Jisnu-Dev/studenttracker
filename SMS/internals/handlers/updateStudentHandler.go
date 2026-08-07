@@ -26,7 +26,7 @@ func (h *Handler) UpdateStudentHandler(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.UpdateStudent(c.Request.Context(), id, student); err != nil && !errors.Is(err, services.ErrStudentNotFound) {
+	if err := h.service.UpdateStudent(c.Request.Context(), id, student); err != nil {
 		if errors.Is(err, services.ErrStudentEmailExists) {
 			RespondWithError(c, http.StatusConflict, err.Error())
 			return

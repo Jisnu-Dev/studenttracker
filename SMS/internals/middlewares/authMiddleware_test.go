@@ -1,9 +1,9 @@
 package middlewares_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/grpcClient"
@@ -21,39 +21,38 @@ func TestAuthMiddleware(t *testing.T) {
 		mockAdminID          int64
 		mockAdminEmail       string
 		mockErr              mocks.GrpcOpError
-		expectedStatusCode   int
-		expectedBody         string
+		expectedCode         int
+		expectedError        string
 		expectedContextID    int64
 		expectedContextEmail string
 	}{
 		{
-			name:                 "success - valid token allows request",
+			name:                 "valid token allows request",
 			authHeader:           "Bearer valid.token.here",
 			mockAdminID:          1,
 			mockAdminEmail:       "admin@example.com",
-			expectedStatusCode:   http.StatusOK,
-			expectedBody:         `{"message":"success"}`,
+			expectedCode:         http.StatusOK,
 			expectedContextID:    1,
 			expectedContextEmail: "admin@example.com",
 		},
 		{
-			name:               "unauthorized - missing header",
-			authHeader:         "",
-			expectedStatusCode: http.StatusUnauthorized,
-			expectedBody:       `{"error":"Authorization header is required"}`,
+			name:          "unauthorized - missing header",
+			authHeader:    "",
+			expectedCode:  http.StatusUnauthorized,
+			expectedError: middlewares.ErrAuthHeaderRequired.Error(),
 		},
 		{
-			name:               "unauthorized - missing Bearer prefix",
-			authHeader:         "invalid.token.here",
-			expectedStatusCode: http.StatusUnauthorized,
-			expectedBody:       `{"error":"Authorization header format must be 'Bearer \u003ctoken\u003e'"}`,
+			name:          "unauthorized - missing Bearer prefix",
+			authHeader:    "invalid.token.here",
+			expectedCode:  http.StatusUnauthorized,
+			expectedError: middlewares.ErrAuthHeaderFormat.Error(),
 		},
 		{
-			name:               "unauthorized - validate token returns false",
-			authHeader:         "Bearer invalid.token.here",
-			mockErr:            mocks.GrpcOpInvalidToken,
-			expectedStatusCode: http.StatusUnauthorized,
-			expectedBody:       `{"error":"Invalid or expired token"}`,
+			name:          "unauthorized - validate token returns false",
+			authHeader:    "Bearer invalid.token.here",
+			mockErr:       mocks.GrpcOpInvalidToken,
+			expectedCode:  http.StatusUnauthorized,
+			expectedError: middlewares.ErrInvalidToken.Error(),
 		},
 	}
 
@@ -64,8 +63,8 @@ func TestAuthMiddleware(t *testing.T) {
 
 			tc := grpcClient.NewTokenClientForTest(&mocks.MockTokenServiceClient{
 				ValidateErr: tt.mockErr,
-				AdminID:            tt.mockAdminID,
-				AdminEmail:         tt.mockAdminEmail,
+				AdminID:     tt.mockAdminID,
+				AdminEmail:  tt.mockAdminEmail,
 			})
 
 			r.GET("/protected", middlewares.AuthMiddleware(tc), func(ctx *gin.Context) {
@@ -90,12 +89,32 @@ func TestAuthMiddleware(t *testing.T) {
 
 			r.ServeHTTP(w, req)
 
-			if w.Code != tt.expectedStatusCode {
-				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedStatusCode, w.Code, w.Body.String())
+			if w.Code != tt.expectedCode {
+				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedCode, w.Code, w.Body.String())
 			}
 
-			if got := strings.TrimSpace(w.Body.String()); got != tt.expectedBody {
-				t.Errorf("expected body %q, got %q", tt.expectedBody, got)
+			if tt.expectedCode == http.StatusOK {
+				var resp struct {
+					Message string `json:"message"`
+				}
+				if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+					t.Fatalf("failed to decode response body: %v", err)
+				}
+				if resp.Message != "success" {
+					t.Errorf("expected message 'success', got %q", resp.Message)
+				}
+			}
+
+			if tt.expectedError != "" {
+				var resp struct {
+					Error string `json:"error"`
+				}
+				if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+					t.Fatalf("failed to decode error body: %v", err)
+				}
+				if resp.Error != tt.expectedError {
+					t.Errorf("expected error %q, got %q", tt.expectedError, resp.Error)
+				}
 			}
 		})
 	}

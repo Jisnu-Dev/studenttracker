@@ -20,7 +20,7 @@ func ParseParamID(c *gin.Context, paramName string) (int64, bool) {
 	idStr := c.Param(paramName)
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || id <= 0 {
-		RespondWithError(c, http.StatusBadRequest, "invalid "+paramName+" parameter")
+		RespondWithError(c, http.StatusBadRequest, ErrInvalidIDParam.Error())
 		return 0, false
 	}
 	return id, true
@@ -28,7 +28,7 @@ func ParseParamID(c *gin.Context, paramName string) (int64, bool) {
 
 func BindJSON(c *gin.Context, target any) bool {
 	if err := c.ShouldBindJSON(target); err != nil {
-		RespondWithError(c, http.StatusBadRequest, "invalid request payload")
+		RespondWithError(c, http.StatusBadRequest, ErrInvalidPayload.Error())
 		return false
 	}
 	return true

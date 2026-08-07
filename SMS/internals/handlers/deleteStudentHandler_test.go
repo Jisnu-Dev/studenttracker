@@ -1,65 +1,65 @@
 package handlers_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
+	"github.com/Jisnu-Dev/studenttracker/internals/handlers"
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
+	"github.com/Jisnu-Dev/studenttracker/internals/services"
 )
 
 func TestDeleteStudentHandler(t *testing.T) {
 	tests := []struct {
-		name               string
-		paramID            string
-		mockErr            mocks.MockOpError
-		expectedStatusCode int
-		expectedBody       string
+		name          string
+		paramID       string
+		mockErr       mocks.MockOpError
+		expectedCode  int
+		expectedError any
 	}{
 		{
-			name:               "success - valid id deletes student and returns 200",
-			paramID:            "1",
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `{"id":1,"message":"Student deleted successfully"}`,
+			name:         "delete student successful",
+			paramID:      "1",
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:               "bad request - non-numeric id param returns 400",
-			paramID:            "abc",
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"invalid id parameter"}`,
+			name:          "delete student fails due to non-numeric id",
+			paramID:       "abc",
+			expectedCode:  http.StatusBadRequest,
+			expectedError: handlers.ErrInvalidIDParam.Error(),
 		},
 		{
-			name:               "bad request - float id param returns 400",
-			paramID:            "1.5",
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"invalid id parameter"}`,
+			name:          "delete student fails due to float id",
+			paramID:       "1.5",
+			expectedCode:  http.StatusBadRequest,
+			expectedError: handlers.ErrInvalidIDParam.Error(),
 		},
 		{
-			name:               "bad request - zero id param returns 400",
-			paramID:            "0",
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"invalid id parameter"}`,
+			name:          "delete student fails due to zero id",
+			paramID:       "0",
+			expectedCode:  http.StatusBadRequest,
+			expectedError: handlers.ErrInvalidIDParam.Error(),
 		},
 		{
-			name:               "bad request - negative id param returns 400",
-			paramID:            "-1",
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"invalid id parameter"}`,
+			name:          "delete student fails due to negative id",
+			paramID:       "-1",
+			expectedCode:  http.StatusBadRequest,
+			expectedError: handlers.ErrInvalidIDParam.Error(),
 		},
 		{
-			name:               "success - valid non-existing id returns 200",
-			paramID:            "99",
-			mockErr:            mocks.OpNotFound,
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `{"id":99,"message":"Student deleted successfully"}`,
+			name:         "delete student successful when student does not exist",
+			paramID:      "99",
+			mockErr:      mocks.OpNotFound,
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:               "internal server error - service failure returns 500",
-			paramID:            "1",
-			mockErr:            mocks.OpInternalError,
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedBody:       `{"error":"unable to delete student"}`,
+			name:          "delete student fails due to internal server error",
+			paramID:       "1",
+			mockErr:       mocks.OpInternalError,
+			expectedCode:  http.StatusInternalServerError,
+			expectedError: services.ErrDeleteStudentFailed.Error(),
 		},
 	}
 
@@ -77,12 +77,25 @@ func TestDeleteStudentHandler(t *testing.T) {
 
 			mux.ServeHTTP(rr, req)
 
-			if rr.Code != tt.expectedStatusCode {
-				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedStatusCode, rr.Code, rr.Body.String())
+			if rr.Code != tt.expectedCode {
+				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedCode, rr.Code, rr.Body.String())
 			}
 
-			if got := strings.TrimSpace(rr.Body.String()); got != tt.expectedBody {
-				t.Errorf("expected body %q, got %q", tt.expectedBody, got)
+			if tt.expectedCode == http.StatusOK {
+				var resp struct {
+					ID      int64  `json:"id"`
+					Message string `json:"message"`
+				}
+				if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+					t.Fatalf("failed to decode response body: %v", err)
+				}
+				if resp.Message != "Student deleted successfully" {
+					t.Errorf("expected message 'Student deleted successfully', got %q", resp.Message)
+				}
+			}
+
+			if tt.expectedError != nil {
+				checkError(t, rr, tt.expectedError)
 			}
 		})
 	}

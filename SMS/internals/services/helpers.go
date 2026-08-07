@@ -44,10 +44,6 @@ func BuildPatchQuery(id int64, student models.PatchStudent) (string, []any, erro
 		paramIndex++
 	}
 
-	if len(parts) == 0 {
-		return "", nil, errors.New("no fields to update")
-	}
-
 	args = append(args, id)
 	query := `UPDATE student SET ` + strings.Join(parts, ", ") + `, "updatedAtUTC" = NOW() WHERE id = $` + strconv.Itoa(paramIndex)
 

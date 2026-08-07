@@ -93,7 +93,7 @@ func (s *Service) GetStudentByID(ctx context.Context, id int64) (models.Student,
 	var student models.Student
 	if err := s.db.QueryRowContext(ctx, query, id).Scan(&student.ID, &student.Name, &student.Email, &student.Department, &student.Semester, &student.Age, &student.CreatedAtUTC, &student.UpdatedAtUTC); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return models.Student{}, ErrStudentNotFound
+			return models.Student{}, nil
 		}
 		slog.Error("database query failed",
 			slog.String("function", "GetStudentByID"),
@@ -126,9 +126,6 @@ func (s *Service) DeleteStudent(ctx context.Context, id int64) error {
 			slog.Any("error", err),
 		)
 		return ErrDeleteStudentFailed
-	}
-	if rowsAffected == 0 {
-		return ErrStudentNotFound
 	}
 	if rowsAffected > 1 {
 		slog.Error("multiple rows affected",

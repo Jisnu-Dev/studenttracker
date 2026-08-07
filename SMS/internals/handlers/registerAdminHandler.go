@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
 	"github.com/Jisnu-Dev/studenttracker/internals/services"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc/status"
 )
 
 func (h *Handler) RegisterAdminHandler(c *gin.Context) {
@@ -24,7 +26,12 @@ func (h *Handler) RegisterAdminHandler(c *gin.Context) {
 
 	hashedPassword, err := HashPassword(admin.Password)
 	if err != nil {
-		RespondWithError(c, http.StatusInternalServerError, "Failed to hash password")
+		slog.Error("failed to hash admin password",
+			slog.String("handler", "RegisterAdminHandler"),
+			slog.String("adminEmail", admin.Email),
+			slog.Any("error", err),
+		)
+		RespondWithError(c, http.StatusInternalServerError, ErrUnableToRegisterAdmin.Error())
 		return
 	}
 
@@ -36,13 +43,21 @@ func (h *Handler) RegisterAdminHandler(c *gin.Context) {
 			RespondWithError(c, http.StatusConflict, err.Error())
 			return
 		}
-		RespondWithError(c, http.StatusInternalServerError, err.Error())
+		RespondWithError(c, http.StatusInternalServerError, ErrUnableToRegisterAdmin.Error())
 		return
 	}
 
 	token, err := h.TokenClient.GenerateToken(c.Request.Context(), id, admin.Email)
 	if err != nil {
-		RespondWithError(c, http.StatusInternalServerError, "admin created, but unable to generate token")
+		st, _ := status.FromError(err)
+		slog.Error("failed to generate token for registered admin",
+			slog.String("handler", "RegisterAdminHandler"),
+			slog.Int64("adminID", id),
+			slog.String("adminEmail", admin.Email),
+			slog.String("grpcCode", st.Code().String()),
+			slog.String("grpcMessage", st.Message()),
+		)
+		RespondWithError(c, http.StatusInternalServerError, ErrUnableToRegisterAdmin.Error())
 		return
 	}
 

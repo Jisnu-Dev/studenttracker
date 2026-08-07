@@ -31,13 +31,9 @@ func (h *Handler) PatchStudentHandler(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.PatchStudent(c.Request.Context(), id, patchStudent); err != nil && !errors.Is(err, services.ErrStudentNotFound) {
+	if err := h.service.PatchStudent(c.Request.Context(), id, patchStudent); err != nil {
 		if errors.Is(err, services.ErrStudentEmailExists) {
 			RespondWithError(c, http.StatusConflict, err.Error())
-			return
-		}
-		if errors.Is(err, services.ErrNoFieldsToUpdate) {
-			RespondWithError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 		RespondWithError(c, http.StatusInternalServerError, err.Error())

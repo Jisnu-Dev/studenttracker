@@ -1,71 +1,61 @@
 package handlers_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
+	"github.com/Jisnu-Dev/studenttracker/internals/services"
 )
 
 func TestGetAllStudentsHandler(t *testing.T) {
 	tests := []struct {
-		name               string
-		mockErr            mocks.MockOpError
-		returnEmpty        bool
-		students           []models.Student
-		expectedStatusCode int
-		expectedBody       string
+		name             string
+		mockErr          mocks.MockOpError
+		returnEmpty      bool
+		mockStudents     []models.Student
+		expectedStudents []models.Student
+		expectedCode     int
+		expectedError    any
 	}{
 		{
-			name:               "success - returns single student with 200",
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `[{"id":1,"name":"test","email":"test@example.com","department":"CS","semester":4,"age":21,"createdAtUtc":"0001-01-01T00:00:00Z","updatedAtUtc":"0001-01-01T00:00:00Z"}]`,
-		},
-		{
-			name: "success - returns multiple students with 200",
-			students: []models.Student{
-				{
-					ID:         1,
-					Name:       "Alice",
-					Email:      "alice@example.com",
-					Department: models.CSE,
-					Semester:   5,
-					Age:        21,
-				},
-				{
-					ID:         2,
-					Name:       "Bob",
-					Email:      "bob@example.com",
-					Department: models.ECE,
-					Semester:   3,
-					Age:        20,
-				},
-				{
-					ID:         3,
-					Name:       "Charlie",
-					Email:      "charlie@example.com",
-					Department: models.IT,
-					Semester:   7,
-					Age:        22,
-				},
+			name: "retrieve all students successful - single student",
+			mockStudents: []models.Student{
+				{ID: 1, Name: "test", Email: "test@example.com", Department: "CS", Semester: 4, Age: 21},
 			},
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `[{"id":1,"name":"Alice","email":"alice@example.com","department":"CSE","semester":5,"age":21,"createdAtUtc":"0001-01-01T00:00:00Z","updatedAtUtc":"0001-01-01T00:00:00Z"},{"id":2,"name":"Bob","email":"bob@example.com","department":"ECE","semester":3,"age":20,"createdAtUtc":"0001-01-01T00:00:00Z","updatedAtUtc":"0001-01-01T00:00:00Z"},{"id":3,"name":"Charlie","email":"charlie@example.com","department":"IT","semester":7,"age":22,"createdAtUtc":"0001-01-01T00:00:00Z","updatedAtUtc":"0001-01-01T00:00:00Z"}]`,
+			expectedStudents: []models.Student{
+				{ID: 1, Name: "test", Email: "test@example.com", Department: "CS", Semester: 4, Age: 21},
+			},
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:               "success - returns empty object with 200 when no students exist",
-			returnEmpty:        true,
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `{}`,
+			name: "retrieve all students successful - multiple students",
+			mockStudents: []models.Student{
+				{ID: 1, Name: "Alice", Email: "alice@example.com", Department: models.CSE, Semester: 5, Age: 21},
+				{ID: 2, Name: "Bob", Email: "bob@example.com", Department: models.ECE, Semester: 3, Age: 20},
+				{ID: 3, Name: "Charlie", Email: "charlie@example.com", Department: models.IT, Semester: 7, Age: 22},
+			},
+			expectedStudents: []models.Student{
+				{ID: 1, Name: "Alice", Email: "alice@example.com", Department: models.CSE, Semester: 5, Age: 21},
+				{ID: 2, Name: "Bob", Email: "bob@example.com", Department: models.ECE, Semester: 3, Age: 20},
+				{ID: 3, Name: "Charlie", Email: "charlie@example.com", Department: models.IT, Semester: 7, Age: 22},
+			},
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:               "internal server error - service failure returns 500",
-			mockErr:            mocks.OpInternalError,
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedBody:       `{"error":"unable to retrieve students"}`,
+			name:             "retrieve all students successful - empty list when no students exist",
+			returnEmpty:      true,
+			expectedStudents: []models.Student{},
+			expectedCode:     http.StatusOK,
+		},
+		{
+			name:          "retrieve all students fails due to internal server error",
+			mockErr:       mocks.OpInternalError,
+			expectedCode:  http.StatusInternalServerError,
+			expectedError: services.ErrGetAllStudentsFailed.Error(),
 		},
 	}
 
@@ -74,7 +64,7 @@ func TestGetAllStudentsHandler(t *testing.T) {
 			svc := &mocks.MockService{
 				GetAllStudentsError: tt.mockErr,
 				ReturnEmptyStudents: tt.returnEmpty,
-				Students:            tt.students,
+				Students:            tt.mockStudents,
 			}
 			_, mux := setupMockHandler(svc, nil)
 
@@ -87,12 +77,32 @@ func TestGetAllStudentsHandler(t *testing.T) {
 
 			mux.ServeHTTP(rr, req)
 
-			if rr.Code != tt.expectedStatusCode {
-				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedStatusCode, rr.Code, rr.Body.String())
+			if rr.Code != tt.expectedCode {
+				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedCode, rr.Code, rr.Body.String())
 			}
 
-			if got := strings.TrimSpace(rr.Body.String()); got != tt.expectedBody {
-				t.Errorf("expected body %q, got %q", tt.expectedBody, got)
+			if tt.expectedCode == http.StatusOK {
+				var gotStudents []models.Student
+				if err := json.NewDecoder(rr.Body).Decode(&gotStudents); err != nil {
+					t.Fatalf("failed to decode response body: %v", err)
+				}
+				if len(gotStudents) != len(tt.expectedStudents) {
+					t.Fatalf("expected %d students, got %d", len(tt.expectedStudents), len(gotStudents))
+				}
+				for i := range gotStudents {
+					if gotStudents[i].ID != tt.expectedStudents[i].ID ||
+						gotStudents[i].Name != tt.expectedStudents[i].Name ||
+						gotStudents[i].Email != tt.expectedStudents[i].Email ||
+						gotStudents[i].Department != tt.expectedStudents[i].Department ||
+						gotStudents[i].Semester != tt.expectedStudents[i].Semester ||
+						gotStudents[i].Age != tt.expectedStudents[i].Age {
+						t.Errorf("student at index %d mismatch: expected %+v, got %+v", i, tt.expectedStudents[i], gotStudents[i])
+					}
+				}
+			}
+
+			if tt.expectedError != nil {
+				checkError(t, rr, tt.expectedError)
 			}
 		})
 	}

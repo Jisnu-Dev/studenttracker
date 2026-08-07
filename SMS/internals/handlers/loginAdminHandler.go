@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/Jisnu-Dev/studenttracker/internals/models"
 	"github.com/Jisnu-Dev/studenttracker/internals/services"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc/status"
 )
 
 func (h *Handler) LoginAdminHandler(c *gin.Context) {
@@ -28,7 +30,7 @@ func (h *Handler) LoginAdminHandler(c *gin.Context) {
 			RespondWithError(c, http.StatusUnauthorized, services.ErrInvalidCredentials.Error())
 			return
 		}
-		RespondWithError(c, http.StatusInternalServerError, err.Error())
+		RespondWithError(c, http.StatusInternalServerError, ErrUnableToLoginAdmin.Error())
 		return
 	}
 
@@ -39,7 +41,15 @@ func (h *Handler) LoginAdminHandler(c *gin.Context) {
 
 	token, err := h.TokenClient.GenerateToken(c.Request.Context(), admin.ID, admin.Email)
 	if err != nil {
-		RespondWithError(c, http.StatusInternalServerError, "unable to login admin")
+		st, _ := status.FromError(err)
+		slog.Error("failed to generate token for login",
+			slog.String("handler", "LoginAdminHandler"),
+			slog.Int64("adminID", admin.ID),
+			slog.String("adminEmail", admin.Email),
+			slog.String("grpcCode", st.Code().String()),
+			slog.String("grpcMessage", st.Message()),
+		)
+		RespondWithError(c, http.StatusInternalServerError, ErrUnableToLoginAdmin.Error())
 		return
 	}
 

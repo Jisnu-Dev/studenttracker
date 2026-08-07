@@ -2,107 +2,132 @@ package handlers_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
+	"github.com/Jisnu-Dev/studenttracker/internals/handlers"
 	"github.com/Jisnu-Dev/studenttracker/internals/mocks"
+	"github.com/Jisnu-Dev/studenttracker/internals/models"
+	"github.com/Jisnu-Dev/studenttracker/internals/services"
 )
 
 func TestCreateStudentHandler(t *testing.T) {
 	tests := []struct {
-		name               string
-		body               string
-		mockErr            mocks.MockOpError
-		expectedStatusCode int
-		expectedBody       string
+		name             string
+		body             string
+		mockErr          mocks.MockOpError
+		createdStudentID int
+		expectedCode     int
+		expectedError    any
 	}{
 		{
-			name:               "success - valid student body returns 200 with id and message",
-			body:               validStudentJSON,
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `{"id":1,"message":"student created successfully"}`,
+			name:             "student creation successful",
+			body:             `{"name":"test name","email":"test@example.com","department":"CSE","semester":3,"age":20}`,
+			createdStudentID: 1,
+			expectedCode:     http.StatusOK,
 		},
 		{
-			name:               "bad request - malformed JSON body returns 400",
-			body:               `{`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"error":"invalid request payload"}`,
+			name:          "student creation fails due to invalid json",
+			body:          `{`,
+			expectedCode:  http.StatusBadRequest,
+			expectedError: handlers.ErrInvalidPayload.Error(),
 		},
 		{
-			name:               "bad request - missing name fails validation",
-			body:               `{"email":"test@example.com","department":"CSE","semester":3,"age":20}`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"errors":{"name":"name is required"}}`,
+			name:         "student creation fails due to missing name",
+			body:         `{"email":"test@example.com","department":"CSE","semester":3,"age":20}`,
+			expectedCode: http.StatusBadRequest,
+			expectedError: map[string]string{
+				"name": models.ErrNameRequired.Error(),
+			},
 		},
 		{
-			name:               "bad request - missing email fails validation",
-			body:               `{"name":"test name","department":"CSE","semester":3,"age":20}`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"errors":{"email":"email is required"}}`,
+			name:         "student creation fails due to missing email",
+			body:         `{"name":"test name","department":"CSE","semester":3,"age":20}`,
+			expectedCode: http.StatusBadRequest,
+			expectedError: map[string]string{
+				"email": models.ErrEmailRequired.Error(),
+			},
 		},
 		{
-			name:               "bad request - email missing @ symbol fails validation",
-			body:               `{"name":"test name","email":"not-an-email","department":"CSE","semester":3,"age":20}`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"errors":{"email":"email is invalid"}}`,
+			name:         "student creation fails due to invalid email format",
+			body:         `{"name":"test name","email":"not-an-email","department":"CSE","semester":3,"age":20}`,
+			expectedCode: http.StatusBadRequest,
+			expectedError: map[string]string{
+				"email": models.ErrInvalidEmail.Error(),
+			},
 		},
 		{
-			name:               "bad request - structurally invalid email fails ParseAddress check",
-			body:               `{"name":"test name","email":"invalid@","department":"CSE","semester":3,"age":20}`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"errors":{"email":"email is invalid"}}`,
+			name:         "student creation fails due to structurally invalid email",
+			body:         `{"name":"test name","email":"invalid@","department":"CSE","semester":3,"age":20}`,
+			expectedCode: http.StatusBadRequest,
+			expectedError: map[string]string{
+				"email": models.ErrInvalidEmail.Error(),
+			},
 		},
 		{
-			name:               "bad request - invalid department value fails validation",
-			body:               `{"name":"test name","email":"test@example.com","department":"INVALID","semester":3,"age":20}`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"errors":{"department":"invalid department"}}`,
+			name:         "student creation fails due to invalid department",
+			body:         `{"name":"test name","email":"test@example.com","department":"INVALID","semester":3,"age":20}`,
+			expectedCode: http.StatusBadRequest,
+			expectedError: map[string]string{
+				"department": models.ErrInvalidDepartment.Error(),
+			},
 		},
 		{
-			name:               "bad request - semester below minimum (0) fails validation",
-			body:               `{"name":"test name","email":"test@example.com","department":"CSE","semester":0,"age":20}`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"errors":{"semester":"semester must be between 1 and 8"}}`,
+			name:         "student creation fails due to semester below minimum (0)",
+			body:         `{"name":"test name","email":"test@example.com","department":"CSE","semester":0,"age":20}`,
+			expectedCode: http.StatusBadRequest,
+			expectedError: map[string]string{
+				"semester": models.ErrSemesterInvalid.Error(),
+			},
 		},
 		{
-			name:               "bad request - semester above maximum (9) fails validation",
-			body:               `{"name":"test name","email":"test@example.com","department":"CSE","semester":9,"age":20}`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"errors":{"semester":"semester must be between 1 and 8"}}`,
+			name:         "student creation fails due to semester above maximum (9)",
+			body:         `{"name":"test name","email":"test@example.com","department":"CSE","semester":9,"age":20}`,
+			expectedCode: http.StatusBadRequest,
+			expectedError: map[string]string{
+				"semester": models.ErrSemesterInvalid.Error(),
+			},
 		},
 		{
-			name:               "bad request - age below minimum (17) fails validation",
-			body:               `{"name":"test name","email":"test@example.com","department":"CSE","semester":3,"age":17}`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"errors":{"age":"age must be between 18 and 60"}}`,
+			name:         "student creation fails due to age below minimum (17)",
+			body:         `{"name":"test name","email":"test@example.com","department":"CSE","semester":3,"age":17}`,
+			expectedCode: http.StatusBadRequest,
+			expectedError: map[string]string{
+				"age": models.ErrAgeInvalid.Error(),
+			},
 		},
 		{
-			name:               "bad request - age above maximum (61) fails validation",
-			body:               `{"name":"test name","email":"test@example.com","department":"CSE","semester":3,"age":61}`,
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       `{"errors":{"age":"age must be between 18 and 60"}}`,
+			name:         "student creation fails due to age above maximum (61)",
+			body:         `{"name":"test name","email":"test@example.com","department":"CSE","semester":3,"age":61}`,
+			expectedCode: http.StatusBadRequest,
+			expectedError: map[string]string{
+				"age": models.ErrAgeInvalid.Error(),
+			},
 		},
 		{
-			name:               "conflict - duplicate student email returns 409",
-			body:               validStudentJSON,
-			mockErr:            mocks.OpEmailExists,
-			expectedStatusCode: http.StatusConflict,
-			expectedBody:       `{"error":"student with this email already exists"}`,
+			name:          "student creation fails because email already exists",
+			body:          `{"name":"test name","email":"test@example.com","department":"CSE","semester":3,"age":20}`,
+			mockErr:       mocks.OpEmailExists,
+			expectedCode:  http.StatusConflict,
+			expectedError: services.ErrStudentEmailExists.Error(),
 		},
 		{
-			name:               "internal server error - service failure returns 500",
-			body:               validStudentJSON,
-			mockErr:            mocks.OpInternalError,
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedBody:       `{"error":"unable to create student"}`,
+			name:          "student creation fails due to internal server error",
+			body:          `{"name":"test name","email":"test@example.com","department":"CSE","semester":3,"age":20}`,
+			mockErr:       mocks.OpInternalError,
+			expectedCode:  http.StatusInternalServerError,
+			expectedError: services.ErrCreateStudentFailed.Error(),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mocks.MockService{CreateStudentError: tt.mockErr}
+			svc := &mocks.MockService{
+				CreateStudentError: tt.mockErr,
+				CreatedStudentID:   tt.createdStudentID,
+			}
 			_, mux := setupMockHandler(svc, nil)
 
 			req := httptest.NewRequest(
@@ -111,17 +136,32 @@ func TestCreateStudentHandler(t *testing.T) {
 				bytes.NewBufferString(tt.body),
 			)
 			req.Header.Set("Content-Type", "application/json")
-			
-			rr := httptest.NewRecorder()
 
+			rr := httptest.NewRecorder()
 			mux.ServeHTTP(rr, req)
 
-			if rr.Code != tt.expectedStatusCode {
-				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedStatusCode, rr.Code, rr.Body.String())
+			if rr.Code != tt.expectedCode {
+				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedCode, rr.Code, rr.Body.String())
 			}
 
-			if got := strings.TrimSpace(rr.Body.String()); got != tt.expectedBody {
-				t.Errorf("expected body %q, got %q", tt.expectedBody, got)
+			if tt.expectedCode == http.StatusOK {
+				var resp struct {
+					ID      int    `json:"id"`
+					Message string `json:"message"`
+				}
+				if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+					t.Fatalf("failed to decode response body: %v", err)
+				}
+				if resp.ID != tt.createdStudentID {
+					t.Errorf("expected student ID %d, got %d", tt.createdStudentID, resp.ID)
+				}
+				if resp.Message != "student created successfully" {
+					t.Errorf("expected message 'student created successfully', got %q", resp.Message)
+				}
+			}
+
+			if tt.expectedError != nil {
+				checkError(t, rr, tt.expectedError)
 			}
 		})
 	}

@@ -4,7 +4,6 @@ import "errors"
 
 var (
 	// Student Domain Errors
-	ErrStudentNotFound    = errors.New("student not found")
 	ErrStudentEmailExists = errors.New("student with this email already exists")
 
 	// Admin & Auth Domain Errors
